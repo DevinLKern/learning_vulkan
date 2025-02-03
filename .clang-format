@@ -1,0 +1,15 @@
+BasedOnStyle: Google
+IndentWidth: 4
+ColumnLimit: 160
+BreakBeforeBraces: Allman
+AlignConsecutiveAssignments: true
+BraceWrapping:
+  AfterFunction: true
+  AfterControlStatement: true
+  BeforeElse: true
+  AfterEnum: true
+  AfterStruct: true
+  AfterUnion: true
+  BeforeLambdaBody: true
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+AllowAllParametersOfDeclarationOnNextLine: false
