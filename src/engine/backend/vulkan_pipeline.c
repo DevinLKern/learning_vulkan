@@ -52,10 +52,9 @@ bool CreateVulkanGraphicsPipeline(const VulkanDevice device[static 1],
         }};
     const VkVertexInputAttributeDescription vertex_attrib_descriptions[] = {
         {.location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0}
-        // { .location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset =
-        // offsetof(Vertex, color)      }, { .location = 2, .binding = 0, .format =
-        // VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, normal)     }, { .location = 3,
-        // .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT,    .offset = offsetof(Vertex, uv) }
+        // { .location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, color) }, 
+        // { .location = 2, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, normal) }, 
+        // { .location = 3, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT,    .offset = offsetof(Vertex, uv) }
     };
     const VkVertexInputBindingDescription vertex_binding_descriptions[] = {
         {.binding = 0, .stride = (sizeof(float) * 3), .inputRate = VK_VERTEX_INPUT_RATE_VERTEX}};

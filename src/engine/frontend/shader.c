@@ -5,13 +5,20 @@
 
 Shader Shader_Create(Renderer renderer[static 1], const ShaderCreateInfo create_info[static 1])
 {
+    assert(create_info->vertex_shader_path != NULL);
+    assert(create_info->fragment_shader_path != NULL);
+    assert(create_info->arena != NULL);
+    assert(create_info->memory != NULL);
+
     Shader shader = {.component_count = 0,
                      .components      = {},
-                     .descriptor_pool = VK_NULL_HANDLE,
                      .vertex_layout   = VK_NULL_HANDLE,
                      .fragment_layout = VK_NULL_HANDLE,
+                     .vertex_module   = VK_NULL_HANDLE,
+                     .fragment_module = VK_NULL_HANDLE,
+                     .descriptor_pool = VK_NULL_HANDLE,
                      .descriptor_sets = NULL,
-                     .uniform_buffers = NULL};
+                     .ubos            = NULL};
 
     // layouts
     {
@@ -101,13 +108,14 @@ Shader Shader_Create(Renderer renderer[static 1], const ShaderCreateInfo create_
         vertex_module_create_info.pCode   = vertex_code;
         fragment_module_create_info.pCode = fragment_code;
 
-        VK_ERROR_HANDLE(vkCreateShaderModule(renderer->device.handle, &vertex_module_create_info, NULL, &shader.modules[0]), {
+        VK_ERROR_HANDLE(vkCreateShaderModule(renderer->device.handle, &vertex_module_create_info, NULL, &shader.vertex_module), {
             MemoryArena_Free(&arena);
             Shader_Cleanup(renderer, &shader);
             return shader;
         });
-        VK_ERROR_HANDLE(vkCreateShaderModule(renderer->device.handle, &fragment_module_create_info, NULL, &shader.modules[1]), {
-            vkDestroyShaderModule(renderer->device.handle, shader.modules[0], NULL);
+        VK_ERROR_HANDLE(vkCreateShaderModule(renderer->device.handle, &fragment_module_create_info, NULL, &shader.fragment_module), {
+            vkDestroyShaderModule(renderer->device.handle, shader.vertex_module, NULL);
+            shader.vertex_module = VK_NULL_HANDLE;
             MemoryArena_Free(&arena);
             Shader_Cleanup(renderer, &shader);
             return shader;
@@ -118,67 +126,61 @@ Shader Shader_Create(Renderer renderer[static 1], const ShaderCreateInfo create_
         shader.components[shader.component_count++] = SHADER_MODULES_COMPONENT;
     }
 
-    return shader;
-}
-
-uint64_t Shader_CalculateRequiredBytes(const Renderer renderer[static 1], const Shader shader[static 1])
-{
-    return renderer->frame_count * (sizeof(VkDescriptorSet) +  // Shader::descriptor_sets
-                                    sizeof(VulkanBuffer)       // Shader::uniform_buffers
-                                   );
-}
-
-bool Shader_Initialize(Renderer renderer[static 1], Shader shader[static 1], MemoryArena arena[static 1])
-{
-    shader->descriptor_sets = MemoryArena_Allocate(arena, renderer->frame_count * sizeof(VkDescriptorSet));
-
     // descriptor sets
     {
+        shader.descriptor_sets = MemoryArena_Allocate(create_info->arena, renderer->frame_count * sizeof(VkDescriptorSet));
+
         VkDescriptorSetLayout* const layouts = calloc(renderer->frame_count, sizeof(VkDescriptorSetLayout));
         for (uint32_t i = 0; i < renderer->frame_count; i++)
         {
-            layouts[i] = shader->vertex_layout;
+            layouts[i] = shader.vertex_layout;
         }
 
         const VkDescriptorSetAllocateInfo alloc_info = {.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
                                                         .pNext              = NULL,
-                                                        .descriptorPool     = shader->descriptor_pool,
+                                                        .descriptorPool     = shader.descriptor_pool,
                                                         .descriptorSetCount = renderer->frame_count,
                                                         .pSetLayouts        = layouts};
-        VK_ERROR_HANDLE(vkAllocateDescriptorSets(renderer->device.handle, &alloc_info, shader->descriptor_sets), {
-            Shader_Cleanup(renderer, shader);
+        VK_ERROR_HANDLE(vkAllocateDescriptorSets(renderer->device.handle, &alloc_info, shader.descriptor_sets), {
+            Shader_Cleanup(renderer, &shader);
             free(layouts);
-            return true;
+            return shader;
         });
 
         free(layouts);
-        shader->components[shader->component_count++] = SHADER_DESCRIPTOR_SETS_COMPONENT;
+        shader.components[shader.component_count++] = SHADER_DESCRIPTOR_SETS_COMPONENT;
     }
 
-    // uniform buffers
+    // uniforms
     {
-        shader->uniform_buffers = MemoryArena_Allocate(arena, renderer->frame_count * sizeof(VulkanBuffer));
+        VkDeviceSize current_offset = 0;
+        shader.ubos                 = MemoryArena_Allocate(create_info->arena, renderer->frame_count * sizeof(UniformBufferObject));
         for (uint32_t i = 0; i < renderer->frame_count; i++)
         {
-            if (CreateVulkanUniformBuffer(&renderer->device, sizeof(Mat4f) * 3, &shader->uniform_buffers[i]))
-            {
-                Shader_Cleanup(renderer, shader);
-                return true;
-            }
+            shader.ubos[i].offset = current_offset;
+            shader.ubos[i].size   = sizeof(Mat4f) * 3;
+            current_offset += shader.ubos[i].size;
         }
-        shader->components[shader->component_count++] = SHADER_UNIFORM_BUFFERS_COMPONENT;
     }
 
-    return false;
+    return shader;
+}
+
+uint64_t Shader_CalculateRequiredBytes(const Renderer renderer[static 1])
+{
+    return renderer->frame_count * (sizeof(VkDescriptorSet) +    // Shader::descriptor_sets
+                                    sizeof(UniformBufferObject)  // Shader::uniform_buffers
+                                   );
 }
 
 void Shader_Bind(const Renderer renderer[static 1], const Shader shader[static 1])
 {
+    // const uint32_t offset = (uint32_t)shader->ubos[renderer->frame_index].offset;
     vkCmdBindDescriptorSets(renderer->primary_command_buffers[renderer->frame_index], VK_PIPELINE_BIND_POINT_GRAPHICS, renderer->graphics_pipeline.layout, 0, 1,
                             shader->descriptor_sets + renderer->frame_index, 0, NULL);
 }
 
-void Shader_Cleanup(Renderer renderer[static 1], Shader shader[static 1])
+void Shader_Cleanup(const Renderer renderer[static 1], Shader shader[static 1])
 {
     while (shader->component_count > 0)
     {
@@ -189,20 +191,26 @@ void Shader_Cleanup(Renderer renderer[static 1], Shader shader[static 1])
                 break;
             case SHADER_DESCRIPTOR_SET_LAYOUTS_COMPONENT:
                 vkDestroyDescriptorSetLayout(renderer->device.handle, shader->vertex_layout, NULL);
+                shader->vertex_layout = VK_NULL_HANDLE;
                 vkDestroyDescriptorSetLayout(renderer->device.handle, shader->fragment_layout, NULL);
+                shader->fragment_layout = VK_NULL_HANDLE;
                 break;
             case SHADER_DESCRIPTOR_SETS_COMPONENT:
                 vkFreeDescriptorSets(renderer->device.handle, shader->descriptor_pool, renderer->frame_count, shader->descriptor_sets);
                 break;
             case SHADER_MODULES_COMPONENT:
-                vkDestroyShaderModule(renderer->device.handle, shader->modules[0], NULL);
-                vkDestroyShaderModule(renderer->device.handle, shader->modules[1], NULL);
+                vkDestroyShaderModule(renderer->device.handle, shader->vertex_module, NULL);
+                shader->vertex_module = VK_NULL_HANDLE;
+                vkDestroyShaderModule(renderer->device.handle, shader->fragment_module, NULL);
+                shader->fragment_module = VK_NULL_HANDLE;
                 break;
             case SHADER_UNIFORM_BUFFERS_COMPONENT:
-                for (uint32_t i = 0; i < renderer->frame_count; i++)
-                {
-                    DestroyVulkanBuffer(&renderer->device, shader->uniform_buffers + i);
-                }
+                //
+
+                break;
+            case SHADER_UNIFORM_BUFFER_MEMORY_COMPONENT:
+                //
+
                 break;
             default:
                 ROSINA_LOG_ERROR("INVALID SHADER COMPONENT");

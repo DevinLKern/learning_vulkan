@@ -121,17 +121,6 @@ Renderer Renderer_Create()
         renderer.components[renderer.component_count++] = RENDERER_WINDOW_COMPONENT;
     }
 
-    //    {
-    //        const RendererContextCreateInfo create_info = {.debug = true, .window = &renderer.window};
-    //        renderer.context                            = RendererContext_Create(&create_info);
-    //        if (renderer.context.component_count == 0)
-    //        {
-    //            Renderer_Cleanup(&renderer);
-    //            return renderer;
-    //        }
-    //        renderer.components[renderer.component_count++] = RENDERER_CONTEXT_COMPONENT;
-    //    }
-
     {
         QueueCapabilityFlags queue_descriptions[] = {QUEUE_CAPABLITY_FLAG_GRAPHICS_BIT | QUEUE_CAPABLITY_FLAG_PRESENT_BIT};
 
@@ -516,8 +505,8 @@ Renderer Renderer_Create()
 bool Renderer_InitializeGraphicsPipeline(Renderer renderer[static 1], Shader shader[static 1])
 {
     const VulkanGraphicsPipelineCreateInfo pipeline_create_info = {.render_pass            = &renderer->render_pass,
-                                                                   .vertex_shader_module   = shader->modules[0],
-                                                                   .fragment_shader_module = shader->modules[1],
+                                                                   .vertex_shader_module   = shader->vertex_module,
+                                                                   .fragment_shader_module = shader->fragment_module,
                                                                    .vertex_shader_layout   = shader->vertex_layout,
                                                                    .fragment_shader_layout = shader->fragment_layout,
                                                                    .width                  = renderer->window.width,

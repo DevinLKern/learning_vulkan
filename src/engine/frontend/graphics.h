@@ -38,6 +38,7 @@ typedef struct Renderer
     VulkanRenderPass render_pass;
     VulkanGraphicsPipeline graphics_pipeline;
     VulkanSwapchain swapchain;
+
     uint32_t image_capacity;
     uint32_t image_count;
     uint32_t frame_capacity;
@@ -54,9 +55,19 @@ typedef struct Renderer
     VkCommandBuffer* primary_command_buffers;
     VkSemaphore* render_finished;
     VkFence* in_flight;
+
     VulkanQueue main_queue;
     uint32_t image_index;
     uint32_t frame_index;
+
+    // use in_flight?
+    // struct StagingBuffer
+    // {
+    //     VkDeviceSize capacity;
+    //     VkDeviceSize size;
+    //     VkBuffer handle;
+    //     VkDeviceMemory memory;
+    // } staging_buffer;
 } Renderer;
 
 Renderer Renderer_Create();
@@ -65,13 +76,72 @@ uint64_t Renderer_CalculateRequiredBytes(const Renderer renderer[static 1]);
 
 void Renderer_Cleanup(Renderer renderer[static 1]);
 
-typedef VulkanBuffer VertexBuffer;
-typedef VulkanBuffer IndexBuffer;
-typedef VulkanBuffer UniformBuffer;
+typedef struct StagingBuffer
+{
+    VkDeviceMemory memory;
+    VkBuffer handle;
+} StagingBuffer;
 
-VertexBuffer VertexBuffer_Create(Renderer renderer[static 1], uint64_t size);
-IndexBuffer VertexBuffer_Create(Renderer renderer[static 1], uint64_t size);
-UniformBuffer VertexBuffer_Create(Renderer renderer[static 1], uint64_t size);
+StagingBuffer StagingBuffer_Create(const Renderer renderer[static 1], const uint64_t size);
+
+void StagingBuffer_Cleanup(const Renderer renderer[static 1], StagingBuffer buffer[static 1]);
+
+typedef struct BufferObject
+{
+    VkDeviceSize size;
+    VkDeviceSize offset;
+} BufferObject;
+
+typedef BufferObject VertexBufferObject;
+typedef BufferObject IndexBufferObject;
+
+typedef BufferObject UniformBufferObject;
+
+typedef struct BufferInfo
+{
+    uint32_t vbo_count;
+    VertexBufferObject* vbos;
+    uint32_t ibo_count;
+    IndexBufferObject* ibos;
+    uint32_t uniform_buffer_count;
+    UniformBufferObject* uniform_buffers;
+} BufferInfo;
+
+typedef enum BufferMemoryComponent
+{
+    BUFFER_MEMORY_VERTEX_BUFFERS_COMPONENT,
+    BUFFER_MEMORY_ibos_COMPONENT,
+    BUFFER_MEMORY_UNIFORM_BUFFERS_COMPONENT,
+    BUFFER_MEMORY_HANDLE_COMPONENT,
+    BUFFER_MEMORY_COMPONENT_COUNT
+} BufferMemoryComponent;
+
+typedef struct BufferMemory
+{
+    uint32_t component_count;
+    BufferMemoryComponent components[BUFFER_MEMORY_COMPONENT_COUNT];
+    VkBuffer vertex_buffer;
+    VkBuffer index_buffer;
+    VkBuffer uniform_buffer;
+    VkDeviceMemory handle;
+} BufferMemory;
+
+void BufferMemory_Cleanup(const Renderer renderer[static 1], BufferMemory memory[static 1]);
+
+/**
+ * Each buffer referenced in the BufferInfo struct must have the size field be > 0 and the offset field be UINT64_MAX.
+ */
+BufferMemory BufferMemory_Create(const Renderer renderer[static 1], const BufferInfo buffers[static 1]);
+
+static inline void VertexBufferObject_Bind(const Renderer renderer[static 1], const BufferMemory memory[static 1], const VertexBufferObject vbo[static 1])
+{
+    vkCmdBindVertexBuffers(renderer->primary_command_buffers[renderer->frame_index], 0, 1, &memory->vertex_buffer, &vbo->offset);
+}
+
+static inline void IndexBufferObject_Bind(const Renderer renderer[static 1], const BufferMemory memory[static 1], const IndexBufferObject ibo[static 1])
+{
+    vkCmdBindIndexBuffer(renderer->primary_command_buffers[renderer->frame_index], memory->index_buffer, ibo->offset, VK_INDEX_TYPE_UINT32);
+}
 
 typedef enum ShaderComponent
 {
@@ -80,6 +150,7 @@ typedef enum ShaderComponent
     SHADER_DESCRIPTOR_SETS_COMPONENT,
     SHADER_MODULES_COMPONENT,
     SHADER_UNIFORM_BUFFERS_COMPONENT,
+    SHADER_UNIFORM_BUFFER_MEMORY_COMPONENT,
     SHADER_COMPONENT_CAPACITY
 } ShaderComponent;
 
@@ -87,31 +158,32 @@ typedef struct Shader
 {
     uint32_t component_count;
     ShaderComponent components[SHADER_COMPONENT_CAPACITY];
-    VkDescriptorPool descriptor_pool;
     VkDescriptorSetLayout vertex_layout;
     VkDescriptorSetLayout fragment_layout;
-    VkDescriptorSet* descriptor_sets;  // one per frame?
-    VulkanBuffer* uniform_buffers;     // one per frame?
-    VkShaderModule modules[2];
+    VkShaderModule vertex_module;
+    VkShaderModule fragment_module;
+    VkDescriptorPool descriptor_pool;
+    VkDescriptorSet* descriptor_sets;
+    UniformBufferObject* ubos;
 } Shader;
 
 typedef struct ShaderCreateInfo
 {
     const char* vertex_shader_path;
     const char* fragment_shader_path;
+    MemoryArena* arena;
+    BufferMemory* memory;
 } ShaderCreateInfo;
 
 Shader Shader_Create(Renderer renderer[static 1], const ShaderCreateInfo create_info[static 1]);
 
-uint64_t Shader_CalculateRequiredBytes(const Renderer renderer[static 1], const Shader shader[static 1]);
-
-bool Shader_Initialize(Renderer renderer[static 1], Shader shader[static 1], MemoryArena arena[static 1]);
+uint64_t Shader_CalculateRequiredBytes(const Renderer renderer[static 1]);
 
 void Shader_Bind(const Renderer renderer[static 1], const Shader shader[static 1]);
 
 // void Shader_UploadUniformBuffer(const Renderer renderer[static 1], Shader shader[static 1], const VulkanBuffer uniform_buffer);
 
-void Shader_Cleanup(Renderer renderer[static 1], Shader shader[static 1]);
+void Shader_Cleanup(const Renderer renderer[static 1], Shader shader[static 1]);
 
 bool Renderer_InitializeGraphicsPipeline(Renderer renderer[static 1], Shader shader[static 1]);
 
