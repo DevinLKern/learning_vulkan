@@ -64,11 +64,6 @@ bool Renderer_StartScene(Renderer renderer[static 1])
     return false;
 }
 
-// void Renderer_Submit(Renderer renderer[static 1], const RendererSubmitInfo submit_info[static 1]) {
-//   vkCmdDrawIndexed(renderer->primary_command_buffers[renderer->frame_index],
-//                    submit_info->index_count, 1, 0, 0, 0);
-// }
-
 static inline void EndRenderPass(const Renderer renderer[static 1]) { vkCmdEndRenderPass(renderer->primary_command_buffers[renderer->frame_index]); }
 
 static inline bool EndFrame(const Renderer renderer[static 1])

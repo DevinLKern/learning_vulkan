@@ -68,15 +68,15 @@ void BufferMemory_Cleanup(const Renderer renderer[static 1], BufferMemory memory
     {
         switch (memory->components[--memory->component_count])
         {
-            case BUFFER_MEMORY_VERTEX_BUFFERS_COMPONENT:
+            case BUFFER_MEMORY_VERTEX_BUFFER_COMPONENT:
                 vkDestroyBuffer(renderer->device.handle, memory->vertex_buffer, NULL);
                 memory->vertex_buffer = VK_NULL_HANDLE;
                 break;
-            case BUFFER_MEMORY_ibos_COMPONENT:
+            case BUFFER_MEMORY_INDEX_BUFFER_COMPONENT:
                 vkDestroyBuffer(renderer->device.handle, memory->index_buffer, NULL);
                 memory->index_buffer = VK_NULL_HANDLE;
                 break;
-            case BUFFER_MEMORY_UNIFORM_BUFFERS_COMPONENT:
+            case BUFFER_MEMORY_UNIFORM_BUFFER_COMPONENT:
                 vkDestroyBuffer(renderer->device.handle, memory->uniform_buffer, NULL);
                 memory->uniform_buffer = VK_NULL_HANDLE;
                 break;
@@ -90,7 +90,7 @@ void BufferMemory_Cleanup(const Renderer renderer[static 1], BufferMemory memory
     }
 }
 
-BufferMemory BufferMemory_Create(const Renderer renderer[static 1], const BufferInfo buffers[static 1])
+BufferMemory BufferMemory_Create(const Renderer renderer[static 1], BufferMemoryCreateInfo buffer_memory_create_info[static 1])
 {
     BufferMemory memory = {.component_count = 0,
                            .components      = {},
@@ -99,68 +99,47 @@ BufferMemory BufferMemory_Create(const Renderer renderer[static 1], const Buffer
                            .index_buffer    = VK_NULL_HANDLE,
                            .uniform_buffer  = VK_NULL_HANDLE};
 
-    VkDeviceSize vertex_buffer_size  = 0;
-    VkDeviceSize index_buffer_size   = 0;
-    VkDeviceSize uniform_buffer_size = 0;
-    {
-        for (uint32_t i = 0; i < buffers->vbo_count; i++)
-        {
-            buffers->vbos[i].offset = vertex_buffer_size;
-            vertex_buffer_size += buffers->vbos[i].size;
-        }
-        for (uint32_t i = 0; i < buffers->ibo_count; i++)
-        {
-            buffers->ibos[i].offset = index_buffer_size;
-            index_buffer_size += buffers->ibos[i].size;
-        }
-        for (uint32_t i = 0; i < buffers->uniform_buffer_count; i++)
-        {
-            buffers->uniform_buffers[i].offset = uniform_buffer_size;
-            uniform_buffer_size += buffers->uniform_buffers[i].size;
-        }
-    }
-
     // create buffers
     {
         VkBufferCreateInfo buffer_create_info = {.sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
                                                  .pNext                 = NULL,
                                                  .flags                 = 0,
-                                                 .size                  = vertex_buffer_size,
+                                                 .size                  = buffer_memory_create_info->vertex_buffer_capacity,
                                                  .usage                 = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                                  .sharingMode           = VK_SHARING_MODE_EXCLUSIVE,
                                                  .queueFamilyIndexCount = 0,
                                                  .pQueueFamilyIndices   = NULL};
-        if (buffers->vbo_count > 0)
+        if (buffer_memory_create_info->vertex_buffer_capacity > 0)
         {
             VK_ERROR_HANDLE(vkCreateBuffer(renderer->device.handle, &buffer_create_info, NULL, &memory.vertex_buffer), {
                 BufferMemory_Cleanup(renderer, &memory);
                 return memory;
             });
-            memory.components[memory.component_count++] = BUFFER_MEMORY_VERTEX_BUFFERS_COMPONENT;
+            memory.components[memory.component_count++] = BUFFER_MEMORY_VERTEX_BUFFER_COMPONENT;
         }
 
-        if (buffers->ibo_count > 0)
+        if (buffer_memory_create_info->index_buffer_capacity > 0)
         {
-            buffer_create_info.size  = index_buffer_size;
+            buffer_create_info.size  = buffer_memory_create_info->index_buffer_capacity;
             buffer_create_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
             VK_ERROR_HANDLE(vkCreateBuffer(renderer->device.handle, &buffer_create_info, NULL, &memory.index_buffer), {
                 BufferMemory_Cleanup(renderer, &memory);
                 return memory;
             });
-            memory.components[memory.component_count++] = BUFFER_MEMORY_ibos_COMPONENT;
+            memory.components[memory.component_count++] = BUFFER_MEMORY_INDEX_BUFFER_COMPONENT;
         }
 
-        if (buffers->uniform_buffer_count > 0)
+        if (buffer_memory_create_info->uniform_buffer_capacity > 0)
         {
-            buffer_create_info.size  = uniform_buffer_size;
+            buffer_create_info.size  = buffer_memory_create_info->uniform_buffer_capacity;
             buffer_create_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
             VK_ERROR_HANDLE(vkCreateBuffer(renderer->device.handle, &buffer_create_info, NULL, &memory.uniform_buffer), {
                 BufferMemory_Cleanup(renderer, &memory);
                 return memory;
             });
-            memory.components[memory.component_count++] = BUFFER_MEMORY_UNIFORM_BUFFERS_COMPONENT;
+            memory.components[memory.component_count++] = BUFFER_MEMORY_UNIFORM_BUFFER_COMPONENT;
         }
     }
 
@@ -169,31 +148,35 @@ BufferMemory BufferMemory_Create(const Renderer renderer[static 1], const Buffer
         uint32_t memory_type_bits = 0;
         VkMemoryRequirements reqs;
 
-        if (buffers->vbo_count > 0)
+        if (buffer_memory_create_info->vertex_buffer_capacity > 0)
         {
             vkGetBufferMemoryRequirements(renderer->device.handle, memory.vertex_buffer, &reqs);
-            vertex_buffer_size += (reqs.alignment - (vertex_buffer_size % reqs.alignment)) % reqs.alignment;
+            buffer_memory_create_info->vertex_buffer_capacity +=
+                (reqs.alignment - (buffer_memory_create_info->vertex_buffer_capacity % reqs.alignment)) % reqs.alignment;
             memory_type_bits |= reqs.memoryTypeBits;
         }
 
-        if (buffers->ibo_count > 0)
+        if (buffer_memory_create_info->index_buffer_capacity > 0)
         {
             vkGetBufferMemoryRequirements(renderer->device.handle, memory.index_buffer, &reqs);
-            index_buffer_size += (reqs.alignment - (index_buffer_size % reqs.alignment)) % reqs.alignment;
+            buffer_memory_create_info->index_buffer_capacity +=
+                (reqs.alignment - (buffer_memory_create_info->index_buffer_capacity % reqs.alignment)) % reqs.alignment;
             memory_type_bits |= reqs.memoryTypeBits;
         }
 
-        if (buffers->uniform_buffer_count > 0)
+        if (buffer_memory_create_info->uniform_buffer_capacity > 0)
         {
             vkGetBufferMemoryRequirements(renderer->device.handle, memory.uniform_buffer, &reqs);
-            uniform_buffer_size += (reqs.alignment - (uniform_buffer_size % reqs.alignment)) % reqs.alignment;
+            buffer_memory_create_info->uniform_buffer_capacity +=
+                (reqs.alignment - (buffer_memory_create_info->uniform_buffer_capacity % reqs.alignment)) % reqs.alignment;
             memory_type_bits |= reqs.memoryTypeBits;
         }
 
         const VkMemoryAllocateInfo buffer_alloc_info = {
-            .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-            .pNext           = NULL,
-            .allocationSize  = vertex_buffer_size + index_buffer_size + uniform_buffer_size,
+            .sType          = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .pNext          = NULL,
+            .allocationSize = buffer_memory_create_info->vertex_buffer_capacity + buffer_memory_create_info->index_buffer_capacity +
+                              buffer_memory_create_info->uniform_buffer_capacity,
             .memoryTypeIndex = FindMemoryType(renderer->device.physical_device, memory_type_bits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)};
 
         VK_ERROR_HANDLE(vkAllocateMemory(renderer->device.handle, &buffer_alloc_info, NULL, &memory.handle), {
@@ -208,31 +191,31 @@ BufferMemory BufferMemory_Create(const Renderer renderer[static 1], const Buffer
     {
         VkDeviceSize current_offset = 0;
 
-        if (buffers->vbo_count > 0)
+        if (buffer_memory_create_info->vertex_buffer_capacity > 0)
         {
             VK_ERROR_HANDLE(vkBindBufferMemory(renderer->device.handle, memory.vertex_buffer, memory.handle, current_offset), {
                 BufferMemory_Cleanup(renderer, &memory);
                 return memory;
             });
-            current_offset += vertex_buffer_size;
+            current_offset += buffer_memory_create_info->vertex_buffer_capacity;
         }
 
-        if (buffers->ibo_count > 0)
+        if (buffer_memory_create_info->index_buffer_capacity > 0)
         {
             VK_ERROR_HANDLE(vkBindBufferMemory(renderer->device.handle, memory.index_buffer, memory.handle, current_offset), {
                 BufferMemory_Cleanup(renderer, &memory);
                 return memory;
             });
-            current_offset += index_buffer_size;
+            current_offset += buffer_memory_create_info->index_buffer_capacity;
         }
 
-        if (buffers->uniform_buffer_count > 0)
+        if (buffer_memory_create_info->uniform_buffer_capacity > 0)
         {
             VK_ERROR_HANDLE(vkBindBufferMemory(renderer->device.handle, memory.uniform_buffer, memory.handle, current_offset), {
                 BufferMemory_Cleanup(renderer, &memory);
                 return memory;
             });
-            current_offset += uniform_buffer_size;
+            current_offset += buffer_memory_create_info->uniform_buffer_capacity;
         }
     }
 

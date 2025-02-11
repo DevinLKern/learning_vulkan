@@ -163,30 +163,4 @@ typedef struct VulkanSwapchainCreateInfo
 
 bool VulkanSwapchain_Create(const VulkanDevice device[static 1], const VulkanSwapchainCreateInfo create_info[static 1], VulkanSwapchain swapchain[static 1]);
 
-typedef struct VulkanBuffer
-{
-    VkBuffer handle;
-    VkDeviceMemory memory;
-} VulkanBuffer;
-
-void DestroyVulkanBuffer(const VulkanDevice device[static 1], VulkanBuffer buffer[static 1]);
-
-typedef struct VulkanBufferCreateInfo
-{
-    VkDeviceSize size;
-    VkBufferUsageFlags usage;
-    VkSharingMode mode;
-    VkMemoryPropertyFlags properties;
-} VulkanBufferCreateInfo;
-
-bool CreateVulkanBuffer(const VulkanDevice device[static 1], const VulkanBufferCreateInfo create_info[static 1], VulkanBuffer buffer[static 1]);
-
-bool CreateVulkanStagingBuffer(const VulkanDevice device[static 1], const VkDeviceSize size, VulkanBuffer buffer[static 1]);
-
-bool CreateVulkanVertexBuffer(const VulkanDevice device[static 1], const VkDeviceSize size, VulkanBuffer buffer[static 1]);
-
-bool CreateVulkanIndexBuffer(const VulkanDevice device[static 1], const VkDeviceSize size, VulkanBuffer buffer[static 1]);
-
-bool CreateVulkanUniformBuffer(const VulkanDevice device[static 1], const VkDeviceSize size, VulkanBuffer buffer[static 1]);
-
 #endif

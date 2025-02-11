@@ -17,7 +17,7 @@ typedef enum RendererComponent
     RENDERER_MEMORY_COMPONENT,
     RENDERER_SWAPCHAIN_IMAGES_COMPONENT,
     RENDERER_DEPTH_IMAGES_COMPONENT,
-    RENDERER_DEPTH_IMAGE_MEMORIES_COMPONENT,
+    RENDERER_DEPTH_IMAGE_MEMORIES_COMPONENT,  // TODO: use one memory object?
     RENDERER_SWAPCHAIN_IMAGE_VIEWS_COMPONENT,
     RENDERER_DEPTH_IMAGE_VIEWS_COMPONENT,
     RENDERER_FRAMEBUFFERS_COMPONENT,
@@ -94,24 +94,20 @@ typedef struct BufferObject
 
 typedef BufferObject VertexBufferObject;
 typedef BufferObject IndexBufferObject;
-
 typedef BufferObject UniformBufferObject;
 
-typedef struct BufferInfo
+typedef struct BufferMemoryCreateInfo
 {
-    uint32_t vbo_count;
-    VertexBufferObject* vbos;
-    uint32_t ibo_count;
-    IndexBufferObject* ibos;
-    uint32_t uniform_buffer_count;
-    UniformBufferObject* uniform_buffers;
-} BufferInfo;
+    VkDeviceSize vertex_buffer_capacity;
+    VkDeviceSize index_buffer_capacity;
+    VkDeviceSize uniform_buffer_capacity;
+} BufferMemoryCreateInfo;
 
 typedef enum BufferMemoryComponent
 {
-    BUFFER_MEMORY_VERTEX_BUFFERS_COMPONENT,
-    BUFFER_MEMORY_ibos_COMPONENT,
-    BUFFER_MEMORY_UNIFORM_BUFFERS_COMPONENT,
+    BUFFER_MEMORY_VERTEX_BUFFER_COMPONENT,
+    BUFFER_MEMORY_INDEX_BUFFER_COMPONENT,
+    BUFFER_MEMORY_UNIFORM_BUFFER_COMPONENT,
     BUFFER_MEMORY_HANDLE_COMPONENT,
     BUFFER_MEMORY_COMPONENT_COUNT
 } BufferMemoryComponent;
@@ -120,8 +116,11 @@ typedef struct BufferMemory
 {
     uint32_t component_count;
     BufferMemoryComponent components[BUFFER_MEMORY_COMPONENT_COUNT];
+    VkDeviceSize vertex_buffer_size;
     VkBuffer vertex_buffer;
+    VkDeviceSize index_buffer_size;
     VkBuffer index_buffer;
+    VkDeviceSize uniform_buffer_size;
     VkBuffer uniform_buffer;
     VkDeviceMemory handle;
 } BufferMemory;
@@ -131,7 +130,28 @@ void BufferMemory_Cleanup(const Renderer renderer[static 1], BufferMemory memory
 /**
  * Each buffer referenced in the BufferInfo struct must have the size field be > 0 and the offset field be UINT64_MAX.
  */
-BufferMemory BufferMemory_Create(const Renderer renderer[static 1], const BufferInfo buffers[static 1]);
+BufferMemory BufferMemory_Create(const Renderer renderer[static 1], BufferMemoryCreateInfo create_info[static 1]);
+
+static inline VertexBufferObject VertexBufferObject_Create(const VkDeviceSize size, BufferMemory memory[static 1])
+{
+    VertexBufferObject vbo = {.size = size, .offset = memory->vertex_buffer_size};
+    memory->vertex_buffer_size += size;
+    return vbo;
+}
+
+static inline IndexBufferObject IndexBufferObject_Create(const VkDeviceSize size, BufferMemory memory[static 1])
+{
+    IndexBufferObject ibo = {.size = size, .offset = memory->index_buffer_size};
+    memory->index_buffer_size += size;
+    return ibo;
+}
+
+static inline UniformBufferObject UniformBufferObject_Create(const VkDeviceSize size, BufferMemory memory[static 1])
+{
+    UniformBufferObject ubo = {.size = size, .offset = memory->uniform_buffer_size};
+    memory->uniform_buffer_size += size;
+    return ubo;
+}
 
 static inline void VertexBufferObject_Bind(const Renderer renderer[static 1], const BufferMemory memory[static 1], const VertexBufferObject vbo[static 1])
 {
@@ -149,8 +169,6 @@ typedef enum ShaderComponent
     SHADER_DESCRIPTOR_SET_LAYOUTS_COMPONENT,
     SHADER_DESCRIPTOR_SETS_COMPONENT,
     SHADER_MODULES_COMPONENT,
-    SHADER_UNIFORM_BUFFERS_COMPONENT,
-    SHADER_UNIFORM_BUFFER_MEMORY_COMPONENT,
     SHADER_COMPONENT_CAPACITY
 } ShaderComponent;
 
@@ -177,11 +195,18 @@ typedef struct ShaderCreateInfo
 
 Shader Shader_Create(Renderer renderer[static 1], const ShaderCreateInfo create_info[static 1]);
 
-uint64_t Shader_CalculateRequiredBytes(const Renderer renderer[static 1]);
+static inline uint64_t Shader_CalculateRequiredBytes(const Renderer renderer[static 1])
+{
+    return renderer->frame_count * (sizeof(VkDescriptorSet) +    // Shader::descriptor_sets
+                                    sizeof(UniformBufferObject)  // Shader::ubos
+                                   );
+}
 
-void Shader_Bind(const Renderer renderer[static 1], const Shader shader[static 1]);
-
-// void Shader_UploadUniformBuffer(const Renderer renderer[static 1], Shader shader[static 1], const VulkanBuffer uniform_buffer);
+static inline void Shader_Bind(const Renderer renderer[static 1], const Shader shader[static 1])
+{
+    vkCmdBindDescriptorSets(renderer->primary_command_buffers[renderer->frame_index], VK_PIPELINE_BIND_POINT_GRAPHICS, renderer->graphics_pipeline.layout, 0, 1,
+                            shader->descriptor_sets + renderer->frame_index, 0, NULL);
+}
 
 void Shader_Cleanup(const Renderer renderer[static 1], Shader shader[static 1]);
 

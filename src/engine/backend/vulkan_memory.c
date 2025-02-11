@@ -75,9 +75,3 @@ bool CreateVulkanImageViews(const VulkanDevice device[static 1], const VulkanIma
     }
     return false;
 }
-
-void DestroyVulkanBuffer(const VulkanDevice device[static 1], VulkanBuffer buffer[static 1])
-{
-    vkFreeMemory(device->handle, buffer->memory, NULL);
-    vkDestroyBuffer(device->handle, buffer->handle, NULL);
-}

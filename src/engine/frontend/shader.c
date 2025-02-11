@@ -128,8 +128,7 @@ Shader Shader_Create(Renderer renderer[static 1], const ShaderCreateInfo create_
 
     // descriptor sets
     {
-        shader.descriptor_sets = MemoryArena_Allocate(create_info->arena, renderer->frame_count * sizeof(VkDescriptorSet));
-
+        shader.descriptor_sets               = MemoryArena_Allocate(create_info->arena, renderer->frame_count * sizeof(VkDescriptorSet));
         VkDescriptorSetLayout* const layouts = calloc(renderer->frame_count, sizeof(VkDescriptorSetLayout));
         for (uint32_t i = 0; i < renderer->frame_count; i++)
         {
@@ -153,31 +152,28 @@ Shader Shader_Create(Renderer renderer[static 1], const ShaderCreateInfo create_
 
     // uniforms
     {
-        VkDeviceSize current_offset = 0;
-        shader.ubos                 = MemoryArena_Allocate(create_info->arena, renderer->frame_count * sizeof(UniformBufferObject));
+        shader.ubos = MemoryArena_Allocate(create_info->arena, renderer->frame_count * sizeof(UniformBufferObject));
         for (uint32_t i = 0; i < renderer->frame_count; i++)
         {
-            shader.ubos[i].offset = current_offset;
-            shader.ubos[i].size   = sizeof(Mat4f) * 3;
-            current_offset += shader.ubos[i].size;
+            shader.ubos[i] = UniformBufferObject_Create(sizeof(Mat4f) * 3, create_info->memory);
+
+            const VkDescriptorBufferInfo buffer_info = {
+                .buffer = create_info->memory->uniform_buffer, .offset = shader.ubos[i].offset, .range = shader.ubos[i].size};
+            const VkWriteDescriptorSet descriptor_writes[] = {{.sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                                                               .pNext            = NULL,
+                                                               .dstSet           = shader.descriptor_sets[i],
+                                                               .dstBinding       = 0,
+                                                               .dstArrayElement  = 0,
+                                                               .descriptorCount  = 1,
+                                                               .descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                                               .pImageInfo       = NULL,
+                                                               .pBufferInfo      = &buffer_info,
+                                                               .pTexelBufferView = NULL}};
+            vkUpdateDescriptorSets(renderer->device.handle, sizeof(descriptor_writes) / sizeof(VkWriteDescriptorSet), descriptor_writes, 0, NULL);
         }
     }
 
     return shader;
-}
-
-uint64_t Shader_CalculateRequiredBytes(const Renderer renderer[static 1])
-{
-    return renderer->frame_count * (sizeof(VkDescriptorSet) +    // Shader::descriptor_sets
-                                    sizeof(UniformBufferObject)  // Shader::uniform_buffers
-                                   );
-}
-
-void Shader_Bind(const Renderer renderer[static 1], const Shader shader[static 1])
-{
-    // const uint32_t offset = (uint32_t)shader->ubos[renderer->frame_index].offset;
-    vkCmdBindDescriptorSets(renderer->primary_command_buffers[renderer->frame_index], VK_PIPELINE_BIND_POINT_GRAPHICS, renderer->graphics_pipeline.layout, 0, 1,
-                            shader->descriptor_sets + renderer->frame_index, 0, NULL);
 }
 
 void Shader_Cleanup(const Renderer renderer[static 1], Shader shader[static 1])
@@ -197,20 +193,13 @@ void Shader_Cleanup(const Renderer renderer[static 1], Shader shader[static 1])
                 break;
             case SHADER_DESCRIPTOR_SETS_COMPONENT:
                 vkFreeDescriptorSets(renderer->device.handle, shader->descriptor_pool, renderer->frame_count, shader->descriptor_sets);
+                shader->descriptor_sets = NULL;
                 break;
             case SHADER_MODULES_COMPONENT:
                 vkDestroyShaderModule(renderer->device.handle, shader->vertex_module, NULL);
                 shader->vertex_module = VK_NULL_HANDLE;
                 vkDestroyShaderModule(renderer->device.handle, shader->fragment_module, NULL);
                 shader->fragment_module = VK_NULL_HANDLE;
-                break;
-            case SHADER_UNIFORM_BUFFERS_COMPONENT:
-                //
-
-                break;
-            case SHADER_UNIFORM_BUFFER_MEMORY_COMPONENT:
-                //
-
                 break;
             default:
                 ROSINA_LOG_ERROR("INVALID SHADER COMPONENT");
