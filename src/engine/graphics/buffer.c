@@ -1,5 +1,5 @@
 #include <assert.h>
-#include <engine/frontend/graphics.h>
+#include <engine/graphics/graphics.h>
 
 StagingBuffer StagingBuffer_Create(const Renderer renderer[static 1], const uint64_t size)
 {

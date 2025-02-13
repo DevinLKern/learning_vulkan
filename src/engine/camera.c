@@ -1,4 +1,4 @@
-#include <engine/frontend/camera.h>
+#include <engine/camera.h>
 
 void SetPerspectiveOrthographicMatrix(Mat4f projection_matrix[static 1], const SetOrthographicsPerspectiveInfo info[static 1])
 {

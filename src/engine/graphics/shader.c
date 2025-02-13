@@ -1,5 +1,5 @@
 #include <assert.h>
-#include <engine/frontend/graphics.h>
+#include <engine/graphics/graphics.h>
 #include <utility/load_file.h>
 #include <utility/log.h>
 

@@ -1,7 +1,6 @@
-#ifndef ROSINA_ENGINE_BACKEND_VULKAN_HELPERS_H
-#define ROSINA_ENGINE_BACKEND_VULKAN_HELPERS_H
+#ifndef ROSINA_ENGINE_VULKAN_HELPERS_H
+#define ROSINA_ENGINE_VULKAN_HELPERS_H
 
-#include <engine/backend/glfw_helpers.h>
 #include <stdbool.h>
 #include <utility/log.h>
 #include <vulkan/vk_enum_string_helper.h>
@@ -45,22 +44,8 @@ typedef struct VulkanQueue
     uint32_t queue_index;
 } VulkanQueue;
 
-typedef enum VulkanDeviceComponent
-{
-    VULKAN_DEVICE_COMPONENT_INSTANCE,
-    VULKAN_DEVICE_COMPONENT_DEBUG_MESSENGER,
-    VULKAN_DEVICE_COMPONENT_SURFACE,
-    VULKAN_DEVICE_COMPONENT_DEVICE,
-    VULKAN_DEVICE_COMPONENT_CAPACITY
-} VulkanDeviceComponent;
-
 typedef struct VulkanDevice
 {
-    uint32_t component_count;
-    VulkanDeviceComponent components[VULKAN_DEVICE_COMPONENT_CAPACITY];
-    VkInstance instance;
-    VkDebugUtilsMessengerEXT debug_messenger;
-    VkSurfaceKHR surface;
     VkPhysicalDevice physical_device;
     VkDevice handle;
     VulkanQueue graphics_queue;
@@ -70,16 +55,23 @@ typedef struct VulkanDevice
 
 void VulkanDevice_Cleanup(VulkanDevice device[static 1]);
 
+typedef struct FindQueueFamilyIndexInfo
+{
+    QueueCapabilityFlags flags;
+    uint32_t queue_count;
+    VkSurfaceKHR surface;
+} FindQueueFamilyIndexInfo;
+
 /**
  * Returns queue family index or UINT32_MAX on error
  */
-uint32_t FindQueueFamilyIndex(const VulkanDevice device[static 1], const QueueCapabilityFlags flags, const uint32_t count);
+uint32_t FindQueueFamilyIndex(const VulkanDevice device[static 1], const FindQueueFamilyIndexInfo info[static 1]);
 
 typedef struct VulkanDeviceCreateInfo
 {
-    GLFWWindow* window;
     QueueCapabilityFlags queue_capabilities;
-    bool debug;
+    VkInstance instance;
+    VkSurfaceKHR surface;
 } VulkanDeviceCreateInfo;
 
 bool CreateVulkanDevice(const VulkanDeviceCreateInfo create_info[static 1], VulkanDevice device[static 1]);
@@ -93,7 +85,7 @@ typedef struct VulkanRenderPass
 
 void VulkanRenderPass_Cleanup(const VulkanDevice device[static 1], VulkanRenderPass render_pass[static 1]);
 
-bool VulkanRenderPass_Create(const VulkanDevice device[static 1], VulkanRenderPass render_pass[static 1]);
+bool VulkanRenderPass_Create(const VulkanDevice device[static 1], const VkSurfaceKHR surface, VulkanRenderPass render_pass[static 1]);
 
 typedef enum VulkanGraphicsPipelineComponent
 {
@@ -145,6 +137,7 @@ typedef struct VulkanSwapchainCreateInfo
     uint32_t queue_family_index_count;
     uint32_t width;
     uint32_t height;
+    VkSurfaceKHR surface;
     VulkanRenderPass* render_pass;
 } VulkanSwapchainCreateInfo;
 

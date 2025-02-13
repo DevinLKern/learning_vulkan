@@ -1,4 +1,4 @@
-#include <engine/frontend/graphics.h>
+#include <engine/graphics/graphics.h>
 #include <string.h>
 #include <utility/log.h>
 #include <utility/math.h>

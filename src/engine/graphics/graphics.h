@@ -1,13 +1,46 @@
-#ifndef ROSINA_ENGINE_FRONTEND_RENDERER_H
-#define ROSINA_ENGINE_FRONTEND_RENDERER_H
+#ifndef ROSINA_ENGINE_GRAPHICS_H
+#define ROSINA_ENGINE_GRAPHICS_H
 
-#include <engine/backend/glfw_helpers.h>
 #include <engine/backend/vulkan_helpers.h>
 #include <utility/math.h>
 #include <utility/memory_arena.h>
 
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+
+typedef struct GraphicsLink
+{
+    VkInstance instance;
+    VkDebugUtilsMessengerEXT debug_messenger;
+} GraphicsLink;
+
+void GraphicsLink_Cleanup(GraphicsLink link[static 1]);
+
+GraphicsLink GraphicsLink_Create(const bool debug);
+
+typedef struct Window
+{
+    GLFWwindow* handle;
+    uint32_t width;
+    uint32_t height;
+    VkSurfaceKHR surface;
+} Window;
+
+void Window_Cleanup(const GraphicsLink link[static 1], Window window[static 1]);
+
+typedef struct WindowCreateInfo
+{
+    uint32_t width;
+    uint32_t height;
+    const char* title;
+    const GraphicsLink* link;
+} WindowCreateInfo;
+
+Window Window_Create(const WindowCreateInfo create_info[static 1]);
+
 typedef enum RendererComponent
 {
+    RENDERER_LINK_COMPONENT,
     RENDERER_WINDOW_COMPONENT,
     RENDERER_CONTEXT_COMPONENT,
     RENDERER_DEVICE_COMPONENT,
@@ -17,7 +50,7 @@ typedef enum RendererComponent
     RENDERER_MEMORY_COMPONENT,
     RENDERER_SWAPCHAIN_IMAGES_COMPONENT,
     RENDERER_DEPTH_IMAGES_COMPONENT,
-    RENDERER_DEPTH_IMAGE_MEMORIES_COMPONENT,  // TODO: use one memory object?
+    RENDERER_DEPTH_IMAGES_MEMORY_COMPONENT,
     RENDERER_SWAPCHAIN_IMAGE_VIEWS_COMPONENT,
     RENDERER_DEPTH_IMAGE_VIEWS_COMPONENT,
     RENDERER_FRAMEBUFFERS_COMPONENT,
@@ -33,7 +66,8 @@ typedef struct Renderer
 {
     uint32_t component_count;
     RendererComponent components[RENDERER_COMPONENT_CAPACITY];
-    GLFWWindow window;
+    GraphicsLink link;
+    Window window;
     VulkanDevice device;
     VulkanRenderPass render_pass;
     VulkanGraphicsPipeline graphics_pipeline;

@@ -1,5 +1,5 @@
 #include <assert.h>
-#include <engine/frontend/graphics.h>
+#include <engine/graphics/graphics.h>
 #include <stdlib.h>
 
 void Renderer_Cleanup(Renderer renderer[static 1])
@@ -8,8 +8,11 @@ void Renderer_Cleanup(Renderer renderer[static 1])
     {
         switch (renderer->components[--renderer->component_count])
         {
+            case RENDERER_LINK_COMPONENT:
+                GraphicsLink_Cleanup(&renderer->link);
+                break;
             case RENDERER_WINDOW_COMPONENT:
-                GLFWWindow_Cleanup(&renderer->window);
+                Window_Cleanup(&renderer->link, &renderer->window);
                 break;
             case RENDERER_DEVICE_COMPONENT:
                 VulkanDevice_Cleanup(&renderer->device);
@@ -36,7 +39,7 @@ void Renderer_Cleanup(Renderer renderer[static 1])
                     renderer->depth_images[i] = VK_NULL_HANDLE;
                 }
                 break;
-            case RENDERER_DEPTH_IMAGE_MEMORIES_COMPONENT:
+            case RENDERER_DEPTH_IMAGES_MEMORY_COMPONENT:
                 vkFreeMemory(renderer->device.handle, renderer->depth_images_memory, NULL);
                 renderer->depth_images_memory = VK_NULL_HANDLE;
                 break;
@@ -107,9 +110,20 @@ Renderer Renderer_Create()
     };
 
     {
-        const GLFWWindowCreateInfo window_create_info = {.width = 1000, .height = 1000, .title = "GLFWWindow"};
-        renderer.window                               = GLFWWindow_Create(&window_create_info);
-        if (renderer.window.window == NULL)
+        renderer.link = GraphicsLink_Create(true);
+        if (renderer.link.instance == VK_NULL_HANDLE)
+        {
+            ROSINA_LOG_ERROR("Could not create graphics link!");
+            Renderer_Cleanup(&renderer);
+            return renderer;
+        }
+        renderer.components[renderer.component_count++] = RENDERER_LINK_COMPONENT;
+    }
+
+    {
+        const WindowCreateInfo window_create_info = {.width = 1000, .height = 1000, .title = "GLFWWindow", .link = &renderer.link};
+        renderer.window                           = Window_Create(&window_create_info);
+        if (renderer.window.handle == NULL)
         {
             ROSINA_LOG_ERROR("Could not create renderer window!");
             return renderer;
@@ -121,9 +135,9 @@ Renderer Renderer_Create()
     {
         // create vulkan device
         {
-            const VulkanDeviceCreateInfo device_create_info = {.window             = &renderer.window,
-                                                               .queue_capabilities = QUEUE_CAPABLITY_FLAG_GRAPHICS_BIT | QUEUE_CAPABLITY_FLAG_PRESENT_BIT,
-                                                               .debug              = true};  // enables validation layers
+            const VulkanDeviceCreateInfo device_create_info = {.queue_capabilities = QUEUE_CAPABLITY_FLAG_GRAPHICS_BIT | QUEUE_CAPABLITY_FLAG_PRESENT_BIT,
+                                                               .instance           = renderer.link.instance,
+                                                               .surface            = renderer.window.surface};
             if (CreateVulkanDevice(&device_create_info, &renderer.device))
             {
                 ROSINA_LOG_ERROR("Failed to create VulkanDevice");
@@ -135,9 +149,9 @@ Renderer Renderer_Create()
         }
     }
 
-    // Create contex->render_pass
+    // Create render_pass
     {
-        if (VulkanRenderPass_Create(&renderer.device, &renderer.render_pass))
+        if (VulkanRenderPass_Create(&renderer.device, renderer.window.surface, &renderer.render_pass))
         {
             ROSINA_LOG_ERROR("Could not create render pass");
             Renderer_Cleanup(&renderer);
@@ -146,13 +160,10 @@ Renderer Renderer_Create()
         renderer.components[renderer.component_count++] = RENDERER_RENDER_PASS_COMPONENT;
     }
 
-    // Create renderer.swapchain
+    // Create swapchain
     {
         const VulkanSwapchainCreateInfo swapchain_create_info = {
-            .width       = renderer.window.width,
-            .height      = renderer.window.height,
-            .render_pass = &renderer.render_pass,
-        };
+            .width = renderer.window.width, .height = renderer.window.height, .render_pass = &renderer.render_pass, .surface = renderer.window.surface};
         renderer.swapchain.present_mode = VK_PRESENT_MODE_FIFO_KHR;
         if (VulkanSwapchain_Create(&renderer.device, &swapchain_create_info, &renderer.swapchain))
         {
@@ -174,7 +185,7 @@ Renderer Renderer_Create()
         });
         {
             VkSurfaceCapabilitiesKHR capabilities = {};
-            VK_ERROR_HANDLE(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(renderer.device.physical_device, renderer.device.surface, &capabilities), {
+            VK_ERROR_HANDLE(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(renderer.device.physical_device, renderer.window.surface, &capabilities), {
                 Renderer_Cleanup(&renderer);
                 return renderer;
             });
@@ -298,7 +309,7 @@ Renderer Renderer_Create()
             });
         }
 
-        renderer.components[renderer.component_count++] = RENDERER_DEPTH_IMAGE_MEMORIES_COMPONENT;
+        renderer.components[renderer.component_count++] = RENDERER_DEPTH_IMAGES_MEMORY_COMPONENT;
     }
 
     // create depth image views

@@ -1,7 +1,7 @@
 #ifndef SANDBOX_APPLICATION_H
 #define SANDBOX_APPLICATION_H
 
-#include <engine/frontend/graphics.h>
+#include <engine/graphics/graphics.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,7 +10,6 @@
 
 typedef enum ApplicationComponent
 {
-    APPLICATION_LIBRARIES_COMPONENT,
     APPLICATION_RENDERER_COMPONENT,
     APPLICATION_MEMORY_ARENA_COMPONENT,
     APPLICATION_SHADER_COMPONENT,

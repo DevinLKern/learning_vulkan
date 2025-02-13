@@ -140,9 +140,9 @@ static inline bool CreateVkRenderPass(const VkSurfaceFormatKHR surface_format, c
     return false;
 }
 
-bool VulkanRenderPass_Create(const VulkanDevice device[static 1], VulkanRenderPass render_pass[static 1])
+bool VulkanRenderPass_Create(const VulkanDevice device[static 1], const VkSurfaceKHR surface, VulkanRenderPass render_pass[static 1])
 {
-    if (SelectVkSurfaceFormat(device->surface, device->physical_device, &render_pass->surface_format))
+    if (SelectVkSurfaceFormat(surface, device->physical_device, &render_pass->surface_format))
     {
         ROSINA_LOG_ERROR("Could not select VkSurfaceFormatKHR");
         return true;

@@ -9,9 +9,6 @@ void Application_Cleanup(Application application[static 1])
     {
         switch (application->components[--application->component_count])
         {
-            case APPLICATION_LIBRARIES_COMPONENT:
-                UninitializeGraphicsLibraryFramework();
-                break;
             case APPLICATION_RENDERER_COMPONENT:
                 Renderer_Cleanup(&application->renderer);
                 break;
@@ -34,14 +31,6 @@ void Application_Cleanup(Application application[static 1])
 Application Application_Create()
 {
     Application application = {.component_count = 0, .components = {}};
-
-    if (InitializeGraphicsLibraryFramework())
-    {
-        ROSINA_LOG_ERROR("Failed to initialize libraries");
-        Application_Cleanup(&application);
-        return application;
-    }
-    application.components[application.component_count++] = APPLICATION_LIBRARIES_COMPONENT;
 
     application.renderer = Renderer_Create();
     if (application.renderer.component_count == 0)
@@ -261,7 +250,7 @@ Application Application_Create()
 
 void Application_Run(Application application[static 1])
 {
-    while (!glfwWindowShouldClose(application->renderer.window.window))
+    while (!glfwWindowShouldClose(application->renderer.window.handle))
     {
         glfwPollEvents();
 
