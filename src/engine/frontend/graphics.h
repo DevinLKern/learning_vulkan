@@ -46,7 +46,7 @@ typedef struct Renderer
     MemoryArena memory;
     VkImage* swapchain_images;
     VkImage* depth_images;
-    VkDeviceMemory* depth_image_memories;
+    VkDeviceMemory depth_images_memory;
     VkImageView* depth_image_views;
     VkImageView* swapchain_image_views;
     VkFramebuffer* framebuffers;
@@ -56,7 +56,6 @@ typedef struct Renderer
     VkSemaphore* render_finished;
     VkFence* in_flight;
 
-    VulkanQueue main_queue;
     uint32_t image_index;
     uint32_t frame_index;
 

@@ -58,7 +58,8 @@ Application Application_Create()
 
     // memory
     {
-        application.arena                                     = MemoryArena_Create(Shader_CalculateRequiredBytes(&application.renderer));
+        application.arena = MemoryArena_Create(Shader_CalculateRequiredBytes(&application.renderer));
+
         application.components[application.component_count++] = APPLICATION_MEMORY_ARENA_COMPONENT;
     }
 
@@ -243,12 +244,13 @@ Application Application_Create()
                                                         .pCommandBuffers      = application.renderer.primary_command_buffers + application.renderer.frame_index,
                                                         .signalSemaphoreCount = 0,
                                                         .pSignalSemaphores    = NULL};
-            VK_ERROR_HANDLE(
-                vkQueueSubmit(application.renderer.main_queue.handle, 1, &submit_info, application.renderer.in_flight[application.renderer.frame_index]), {
-                    ROSINA_LOG_ERROR("Failed to submit queue");
-                    Application_Cleanup(&application);
-                    return application;
-                });
+            VK_ERROR_HANDLE(vkQueueSubmit(application.renderer.device.graphics_queue.handle, 1, &submit_info,
+                                          application.renderer.in_flight[application.renderer.frame_index]),
+                            {
+                                ROSINA_LOG_ERROR("Failed to submit queue");
+                                Application_Cleanup(&application);
+                                return application;
+                            });
         }
 
         StagingBuffer_Cleanup(&application.renderer, &staging_buffer);

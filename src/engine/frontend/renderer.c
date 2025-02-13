@@ -37,11 +37,8 @@ void Renderer_Cleanup(Renderer renderer[static 1])
                 }
                 break;
             case RENDERER_DEPTH_IMAGE_MEMORIES_COMPONENT:
-                for (uint32_t i = 0; i < renderer->image_count; i++)
-                {
-                    vkFreeMemory(renderer->device.handle, renderer->depth_image_memories[i], NULL);
-                    renderer->depth_image_memories[i] = VK_NULL_HANDLE;
-                }
+                vkFreeMemory(renderer->device.handle, renderer->depth_images_memory, NULL);
+                renderer->depth_images_memory = VK_NULL_HANDLE;
                 break;
             case RENDERER_DEPTH_IMAGE_VIEWS_COMPONENT:
                 for (uint32_t i = 0; i < renderer->image_count; i++)
@@ -122,14 +119,11 @@ Renderer Renderer_Create()
     }
 
     {
-        QueueCapabilityFlags queue_descriptions[] = {QUEUE_CAPABLITY_FLAG_GRAPHICS_BIT | QUEUE_CAPABLITY_FLAG_PRESENT_BIT};
-
         // create vulkan device
         {
-            const VulkanDeviceCreateInfo device_create_info = {.window                  = &renderer.window,
-                                                               .queue_description_count = sizeof(queue_descriptions) / sizeof(QueueCapabilityFlags),
-                                                               .queue_descriptions      = queue_descriptions,
-                                                               .debug                   = true};  // enables validation layers
+            const VulkanDeviceCreateInfo device_create_info = {.window             = &renderer.window,
+                                                               .queue_capabilities = QUEUE_CAPABLITY_FLAG_GRAPHICS_BIT | QUEUE_CAPABLITY_FLAG_PRESENT_BIT,
+                                                               .debug              = true};  // enables validation layers
             if (CreateVulkanDevice(&device_create_info, &renderer.device))
             {
                 ROSINA_LOG_ERROR("Failed to create VulkanDevice");
@@ -138,24 +132,6 @@ Renderer Renderer_Create()
             }
 
             renderer.components[renderer.component_count++] = RENDERER_DEVICE_COMPONENT;
-        }
-
-        // queue stuff
-        {
-            const FindQueueFamilyIndexInfo find_info = {.queue_capability_count = 1, .queue_capabilities = queue_descriptions};
-            renderer.main_queue.family_index         = UINT32_MAX;
-            if (FindQueueFamilyIndices(&renderer.device, &find_info, &renderer.main_queue.family_index))
-            {
-                ROSINA_LOG_ERROR("Could not find queue family indices");
-                Renderer_Cleanup(&renderer);
-                return renderer;
-            }
-            const VkDeviceQueueInfo2 queue_info = {.sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,
-                                                   .pNext            = NULL,
-                                                   .flags            = 0,
-                                                   .queueFamilyIndex = renderer.main_queue.family_index,
-                                                   .queueIndex       = 0};
-            vkGetDeviceQueue2(renderer.device.handle, &queue_info, &renderer.main_queue.handle);
         }
     }
 
@@ -172,12 +148,12 @@ Renderer Renderer_Create()
 
     // Create renderer.swapchain
     {
-        const VulkanSwapchainCreateInfo swapchain_create_info = {.queue_family_indices     = &renderer.main_queue.family_index,
-                                                                 .queue_family_index_count = 1,
-                                                                 .width                    = renderer.window.width,
-                                                                 .height                   = renderer.window.height,
-                                                                 .render_pass              = &renderer.render_pass};
-        renderer.swapchain.present_mode                       = VK_PRESENT_MODE_FIFO_KHR;
+        const VulkanSwapchainCreateInfo swapchain_create_info = {
+            .width       = renderer.window.width,
+            .height      = renderer.window.height,
+            .render_pass = &renderer.render_pass,
+        };
+        renderer.swapchain.present_mode = VK_PRESENT_MODE_FIFO_KHR;
         if (VulkanSwapchain_Create(&renderer.device, &swapchain_create_info, &renderer.swapchain))
         {
             ROSINA_LOG_ERROR("Failed to create VulkanSwapchain");
@@ -214,12 +190,11 @@ Renderer Renderer_Create()
                                                               sizeof(VkSemaphore) +      // renderer.render_finished
                                                               sizeof(VkFence)            // renderer.in_flight
                                                               )) +
-                                  (renderer.image_capacity * (sizeof(VkImage) +         // renderer.swapchain_images
-                                                              sizeof(VkImage) +         // renderer.depth_images
-                                                              sizeof(VkDeviceMemory) +  // renderer.depth_image_memories
-                                                              sizeof(VkImageView) +     // renderer.swapchain_image_views
-                                                              sizeof(VkImageView) +     // renderer.depth_image_views
-                                                              sizeof(VkFramebuffer)     // renderer.framebuffers
+                                  (renderer.image_capacity * (sizeof(VkImage) +      // renderer.swapchain_images
+                                                              sizeof(VkImage) +      // renderer.depth_images
+                                                              sizeof(VkImageView) +  // renderer.swapchain_image_views
+                                                              sizeof(VkImageView) +  // renderer.depth_image_views
+                                                              sizeof(VkFramebuffer)  // renderer.framebuffers
                                                               ));
         renderer.memory                                 = MemoryArena_Create(required_bytes);
         renderer.components[renderer.component_count++] = RENDERER_MEMORY_COMPONENT;
@@ -285,15 +260,42 @@ Renderer Renderer_Create()
         renderer.components[renderer.component_count++] = RENDERER_DEPTH_IMAGES_COMPONENT;
     }
 
-    // create depth image memories
+    // allocate memory for depth images
     {
-        renderer.depth_image_memories = MemoryArena_Allocate(&renderer.memory, renderer.image_capacity * sizeof(VkDeviceMemory));
+        renderer.depth_images_memory = VK_NULL_HANDLE;
 
-        if (CreateVulkanImageMemories(&renderer.device, renderer.image_count, renderer.depth_images, renderer.depth_image_memories))
+        VkDeviceSize depth_images_memory_size = 0;
+        uint32_t depth_image_memory_type_bits = 0;
+        for (uint32_t i = 0; i < renderer.image_count; i++)
         {
-            ROSINA_LOG_ERROR("Failed to create depth image memories");
+            VkMemoryRequirements memory_requirements;
+            vkGetImageMemoryRequirements(renderer.device.handle, renderer.depth_images[i], &memory_requirements);
+            depth_images_memory_size += memory_requirements.size;
+            depth_image_memory_type_bits |= memory_requirements.memoryTypeBits;
+        }
+
+        const VkMemoryAllocateInfo alloc_info = {
+            .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .allocationSize  = depth_images_memory_size,
+            .memoryTypeIndex = FindMemoryType(renderer.device.physical_device, depth_image_memory_type_bits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)};
+
+        VK_ERROR_HANDLE(vkAllocateMemory(renderer.device.handle, &alloc_info, NULL, &renderer.depth_images_memory), {
             Renderer_Cleanup(&renderer);
             return renderer;
+        });
+
+        depth_images_memory_size = 0;
+        for (uint32_t i = 0; i < renderer.image_count; i++)
+        {
+            VkMemoryRequirements memory_requirements;
+            vkGetImageMemoryRequirements(renderer.device.handle, renderer.depth_images[i], &memory_requirements);
+
+            VK_ERROR_HANDLE(vkBindImageMemory(renderer.device.handle, renderer.depth_images[i], renderer.depth_images_memory, depth_images_memory_size), {
+                vkFreeMemory(renderer.device.handle, renderer.depth_images_memory, NULL);
+                renderer.depth_images_memory = VK_NULL_HANDLE;
+                Renderer_Cleanup(&renderer);
+                return renderer;
+            });
         }
 
         renderer.components[renderer.component_count++] = RENDERER_DEPTH_IMAGE_MEMORIES_COMPONENT;
@@ -346,16 +348,18 @@ Renderer Renderer_Create()
                                  .b = VK_COMPONENT_SWIZZLE_IDENTITY,
                                  .a = VK_COMPONENT_SWIZZLE_IDENTITY},
             .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1}};
-        const VulkanImageViewsCreateInfo image_views_create_info = {
-            .image_count          = renderer.image_count,
-            .images               = renderer.swapchain_images,
-            .vk_image_create_info = &image_view_create_info,
-        };
-        if (CreateVulkanImageViews(&renderer.device, &image_views_create_info, renderer.swapchain_image_views))
+
+        for (uint32_t i = 0; i < renderer.image_count; i++)
         {
-            ROSINA_LOG_ERROR("Failed to create swapchain image views");
-            Renderer_Cleanup(&renderer);
-            return renderer;
+            image_view_create_info.image = renderer.swapchain_images[i];
+            VK_ERROR_HANDLE(vkCreateImageView(renderer.device.handle, &image_view_create_info, NULL, renderer.swapchain_image_views + i), {
+                for (uint32_t j = 0; j < i; j++)
+                {
+                    vkDestroyImageView(renderer.device.handle, renderer.swapchain_image_views[i], NULL);
+                }
+                Renderer_Cleanup(&renderer);
+                return renderer;
+            });
         }
 
         renderer.components[renderer.component_count++] = RENDERER_SWAPCHAIN_IMAGE_VIEWS_COMPONENT;
@@ -461,7 +465,7 @@ Renderer Renderer_Create()
         const VkCommandPoolCreateInfo pool_create_info = {.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
                                                           .pNext            = NULL,
                                                           .flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-                                                          .queueFamilyIndex = renderer.main_queue.family_index};
+                                                          .queueFamilyIndex = renderer.device.graphics_queue.family_index};
         for (uint32_t i = 0; i < renderer.frame_count; i++)
         {
             VK_ERROR_HANDLE(vkCreateCommandPool(renderer.device.handle, &pool_create_info, NULL, renderer.command_pools + i), {

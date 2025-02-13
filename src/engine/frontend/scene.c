@@ -82,7 +82,7 @@ static inline bool EndFrame(const Renderer renderer[static 1])
                                                 .pCommandBuffers      = renderer->primary_command_buffers + renderer->frame_index,
                                                 .signalSemaphoreCount = 1,
                                                 .pSignalSemaphores    = renderer->render_finished + renderer->frame_index};
-    VK_ERROR_RETURN(vkQueueSubmit(renderer->main_queue.handle, 1, &submit_info, renderer->in_flight[renderer->frame_index]), true);
+    VK_ERROR_RETURN(vkQueueSubmit(renderer->device.graphics_queue.handle, 1, &submit_info, renderer->in_flight[renderer->frame_index]), true);
 
     const VkPresentInfoKHR present_info = {.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
                                            .waitSemaphoreCount = 1,
@@ -91,7 +91,7 @@ static inline bool EndFrame(const Renderer renderer[static 1])
                                            .pSwapchains        = &renderer->swapchain.handle,
                                            .pImageIndices      = &renderer->image_index};
 
-    VK_ERROR_RETURN(vkQueuePresentKHR(renderer->main_queue.handle, &present_info), true);
+    VK_ERROR_RETURN(vkQueuePresentKHR(renderer->device.present_queue.handle, &present_info), true);
 
     return false;
 }

@@ -11,15 +11,19 @@ void VulkanDevice_Cleanup(VulkanDevice device[static 1])
         {
             case VULKAN_DEVICE_COMPONENT_INSTANCE:
                 vkDestroyInstance(device->instance, NULL);
+                device->instance = VK_NULL_HANDLE;
                 break;
             case VULKAN_DEVICE_COMPONENT_DEBUG_MESSENGER:
                 vkDestroyDebugUtilsMessengerEXT(device->instance, device->debug_messenger, NULL);
+                device->debug_messenger = VK_NULL_HANDLE;
                 break;
             case VULKAN_DEVICE_COMPONENT_SURFACE:
                 vkDestroySurfaceKHR(device->instance, device->surface, NULL);
+                device->surface = VK_NULL_HANDLE;
                 break;
             case VULKAN_DEVICE_COMPONENT_DEVICE:
                 vkDestroyDevice(device->handle, NULL);
+                device->handle = VK_NULL_HANDLE;
                 break;
             default:
                 ROSINA_LOG_ERROR("Invalid swapchain component value");
@@ -352,6 +356,17 @@ static inline bool CreateVkDevice(const VkPhysicalDevice physical_device, uint32
     return false;
 }
 
+int cmp_uint32_t(const void* x, const void* y)
+{
+    const uint32_t a = *((uint32_t*)x);
+    const uint32_t b = *((uint32_t*)y);
+
+    if (a > b) return 1;
+    if (a < b) return -1;
+
+    return 0;
+}
+
 bool CreateVulkanDevice(const VulkanDeviceCreateInfo create_info[static 1], VulkanDevice device[static 1])
 {
     if (CreateVkInstance(&device->instance, create_info->debug))
@@ -385,22 +400,59 @@ bool CreateVulkanDevice(const VulkanDeviceCreateInfo create_info[static 1], Vulk
         return true;
     }
 
-    const FindQueueFamilyIndexInfo find_info = {.queue_capability_count = create_info->queue_description_count,
-                                                .queue_capabilities     = create_info->queue_descriptions};
-    uint32_t* const queue_family_indices     = calloc(create_info->queue_description_count, sizeof(uint32_t));
-    for (uint32_t i = 0; i < create_info->queue_description_count; i++)
+    uint32_t queue_family_index_count    = 0;
+    uint32_t* const queue_family_indices = calloc(3, sizeof(uint32_t));
     {
-        queue_family_indices[i] = UINT32_MAX;
-    }
-    if (FindQueueFamilyIndices(device, &find_info, queue_family_indices))
-    {
-        ROSINA_LOG_ERROR("Queue family not supported");
-        free(queue_family_indices);
-        VulkanDevice_Cleanup(device);
-        return true;
+        device->graphics_queue.family_index = FindQueueFamilyIndex(device, QUEUE_CAPABLITY_FLAG_GRAPHICS_BIT, 1);
+        if (device->graphics_queue.family_index == UINT32_MAX)
+        {
+            free(queue_family_indices);
+            VulkanDevice_Cleanup(device);
+            return true;
+        }
+        device->graphics_queue.queue_index               = 0;
+        queue_family_indices[queue_family_index_count++] = device->graphics_queue.family_index;
+
+        device->transfer_queue.family_index = FindQueueFamilyIndex(device, QUEUE_CAPABLITY_FLAG_TRANSFER_BIT, 1);
+        if (device->transfer_queue.family_index == UINT32_MAX)
+        {
+            free(queue_family_indices);
+            VulkanDevice_Cleanup(device);
+            return true;
+        }
+        device->transfer_queue.queue_index               = 0;
+        queue_family_indices[queue_family_index_count++] = device->transfer_queue.family_index;
+
+        device->present_queue.family_index = FindQueueFamilyIndex(device, QUEUE_CAPABLITY_FLAG_PRESENT_BIT, 1);
+        if (device->present_queue.family_index == UINT32_MAX)
+        {
+            free(queue_family_indices);
+            VulkanDevice_Cleanup(device);
+            return true;
+        }
+        device->present_queue.queue_index                = 0;
+        queue_family_indices[queue_family_index_count++] = device->present_queue.family_index;
+
+        // sort
+        qsort(queue_family_indices, queue_family_index_count, sizeof(uint32_t), cmp_uint32_t);
+
+        // remove duplicates
+        {
+            uint32_t l = 0;
+            uint32_t m = 0;
+            uint32_t r = 0;
+            while (r < queue_family_index_count)
+            {
+                while (r < queue_family_index_count && queue_family_indices[m] == queue_family_indices[r]) r++;
+
+                queue_family_indices[l++] = queue_family_indices[m];
+                m                         = r;
+            }
+            queue_family_index_count = l;
+        }
     }
 
-    if (CreateVkDevice(device->physical_device, create_info->queue_description_count, queue_family_indices, &device->handle))
+    if (CreateVkDevice(device->physical_device, queue_family_index_count, queue_family_indices, &device->handle))
     {
         ROSINA_LOG_ERROR("Could not create VkDevice");
         free(queue_family_indices);
@@ -408,6 +460,25 @@ bool CreateVulkanDevice(const VulkanDeviceCreateInfo create_info[static 1], Vulk
         return true;
     }
     device->components[device->component_count++] = VULKAN_DEVICE_COMPONENT_DEVICE;
+
+    {
+        VkDeviceQueueInfo2 queue_info = {
+            .sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,
+            .pNext            = NULL,
+            .flags            = 0,
+            .queueFamilyIndex = device->graphics_queue.family_index,
+            .queueIndex       = device->graphics_queue.queue_index,
+        };
+        vkGetDeviceQueue2(device->handle, &queue_info, &device->graphics_queue.handle);
+
+        queue_info.queueFamilyIndex = device->transfer_queue.family_index;
+        queue_info.queueIndex       = device->transfer_queue.queue_index;
+        vkGetDeviceQueue2(device->handle, &queue_info, &device->transfer_queue.handle);
+
+        queue_info.queueFamilyIndex = device->present_queue.family_index;
+        queue_info.queueIndex       = device->present_queue.queue_index;
+        vkGetDeviceQueue2(device->handle, &queue_info, &device->present_queue.handle);
+    }
 
     free(queue_family_indices);
     return false;

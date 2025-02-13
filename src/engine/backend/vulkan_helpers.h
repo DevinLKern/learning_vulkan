@@ -38,6 +38,13 @@ enum QueueCapabilityFlagBits
 };
 typedef uint32_t QueueCapabilityFlags;
 
+typedef struct VulkanQueue
+{
+    VkQueue handle;
+    uint32_t family_index;
+    uint32_t queue_index;
+} VulkanQueue;
+
 typedef enum VulkanDeviceComponent
 {
     VULKAN_DEVICE_COMPONENT_INSTANCE,
@@ -56,46 +63,26 @@ typedef struct VulkanDevice
     VkSurfaceKHR surface;
     VkPhysicalDevice physical_device;
     VkDevice handle;
+    VulkanQueue graphics_queue;
+    VulkanQueue transfer_queue;
+    VulkanQueue present_queue;
 } VulkanDevice;
 
 void VulkanDevice_Cleanup(VulkanDevice device[static 1]);
 
+/**
+ * Returns queue family index or UINT32_MAX on error
+ */
+uint32_t FindQueueFamilyIndex(const VulkanDevice device[static 1], const QueueCapabilityFlags flags, const uint32_t count);
+
 typedef struct VulkanDeviceCreateInfo
 {
     GLFWWindow* window;
-    uint32_t queue_description_count;
-    QueueCapabilityFlags* queue_descriptions;
+    QueueCapabilityFlags queue_capabilities;
     bool debug;
 } VulkanDeviceCreateInfo;
 
 bool CreateVulkanDevice(const VulkanDeviceCreateInfo create_info[static 1], VulkanDevice device[static 1]);
-
-typedef struct FindQueueFamilyIndexInfo
-{
-    uint32_t queue_capability_count;
-    QueueCapabilityFlags* queue_capabilities;
-} FindQueueFamilyIndexInfo;
-
-bool FindQueueFamilyIndices(const VulkanDevice device[static 1], const FindQueueFamilyIndexInfo select_info[static 1], uint32_t* const queue_family_indices);
-
-typedef struct VulkanQueue
-{
-    VkQueue handle;
-    uint32_t family_index;
-    uint32_t queue_index;
-} VulkanQueue;
-
-bool CreateVulkanImageMemories(const VulkanDevice device[static 1], const uint32_t image_count, const VkImage images[static image_count],
-                               VkDeviceMemory image_memories[static image_count]);
-
-typedef struct VulkanImageViewsCreateInfo
-{
-    uint32_t image_count;
-    VkImage* images;
-    VkImageViewCreateInfo* vk_image_create_info;
-} VulkanImageViewsCreateInfo;
-
-bool CreateVulkanImageViews(const VulkanDevice device[static 1], const VulkanImageViewsCreateInfo create_info[static 1], VkImageView* image_views);
 
 typedef struct VulkanRenderPass
 {
