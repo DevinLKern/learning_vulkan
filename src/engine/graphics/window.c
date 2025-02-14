@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <engine/graphics/graphics.h>
 #include <string.h>
 
@@ -263,3 +264,319 @@ Window Window_Create(const WindowCreateInfo create_info[static 1])
 
     return window;
 }
+
+EventType MapGLFWActionToEventType(const int action)
+{
+    switch (action)
+    {
+        case GLFW_RELEASE:
+            return EVENT_TYPE_RELEASE;
+        case GLFW_PRESS:
+            return EVENT_TYPE_PRESS;
+        case GLFW_REPEAT:
+            return EVENT_TYPE_REPEAT;
+        default:
+            ROSINA_LOG_ERROR("Error. Invalid action value");
+            assert(false);
+    }
+}
+
+KeyboardKey MapGLFWKeyToKeboardKey(const int key)
+{
+    switch (key)
+    {
+        case GLFW_KEY_SPACE:
+            return KEYBORAD_KEY_SPACE;
+        case GLFW_KEY_APOSTROPHE:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_COMMA:
+            return KEYBORAD_KEY_COMMA;
+        case GLFW_KEY_MINUS:
+            return KEYBORAD_KEY_MINUS;
+        case GLFW_KEY_PERIOD:
+            return KEYBORAD_KEY_PERIOD;
+        case GLFW_KEY_SLASH:
+            return KEYBORAD_KEY_SLASH;
+        case GLFW_KEY_0:
+            return KEYBORAD_KEY_0;
+        case GLFW_KEY_1:
+            return KEYBORAD_KEY_1;
+        case GLFW_KEY_2:
+            return KEYBORAD_KEY_2;
+        case GLFW_KEY_3:
+            return KEYBORAD_KEY_3;
+        case GLFW_KEY_4:
+            return KEYBORAD_KEY_4;
+        case GLFW_KEY_5:
+            return KEYBORAD_KEY_5;
+        case GLFW_KEY_6:
+            return KEYBORAD_KEY_6;
+        case GLFW_KEY_7:
+            return KEYBORAD_KEY_7;
+        case GLFW_KEY_8:
+            return KEYBORAD_KEY_8;
+        case GLFW_KEY_9:
+            return KEYBORAD_KEY_9;
+        case GLFW_KEY_SEMICOLON:  // ----------
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_EQUAL:  // ----------
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_A:
+            return KEYBORAD_KEY_A;
+        case GLFW_KEY_B:
+            return KEYBORAD_KEY_B;
+        case GLFW_KEY_C:
+            return KEYBORAD_KEY_C;
+        case GLFW_KEY_D:
+            return KEYBORAD_KEY_D;
+        case GLFW_KEY_E:
+            return KEYBORAD_KEY_E;
+        case GLFW_KEY_F:
+            return KEYBORAD_KEY_F;
+        case GLFW_KEY_G:
+            return KEYBORAD_KEY_G;
+        case GLFW_KEY_H:
+            return KEYBORAD_KEY_H;
+        case GLFW_KEY_I:
+            return KEYBORAD_KEY_I;
+        case GLFW_KEY_J:
+            return KEYBORAD_KEY_J;
+        case GLFW_KEY_K:
+            return KEYBORAD_KEY_K;
+        case GLFW_KEY_L:
+            return KEYBORAD_KEY_L;
+        case GLFW_KEY_M:
+            return KEYBORAD_KEY_M;
+        case GLFW_KEY_N:
+            return KEYBORAD_KEY_N;
+        case GLFW_KEY_O:
+            return KEYBORAD_KEY_O;
+        case GLFW_KEY_P:
+            return KEYBORAD_KEY_P;
+        case GLFW_KEY_Q:
+            return KEYBORAD_KEY_Q;
+        case GLFW_KEY_R:
+            return KEYBORAD_KEY_R;
+        case GLFW_KEY_S:
+            return KEYBORAD_KEY_S;
+        case GLFW_KEY_T:
+            return KEYBORAD_KEY_T;
+        case GLFW_KEY_U:
+            return KEYBORAD_KEY_U;
+        case GLFW_KEY_V:
+            return KEYBORAD_KEY_V;
+        case GLFW_KEY_W:
+            return KEYBORAD_KEY_W;
+        case GLFW_KEY_X:
+            return KEYBORAD_KEY_X;
+        case GLFW_KEY_Y:
+            return KEYBORAD_KEY_Y;
+        case GLFW_KEY_Z:
+            return KEYBORAD_KEY_Z;
+        case GLFW_KEY_LEFT_BRACKET:
+            return KEYBORAD_KEY_BRACKET_OPEN;
+        case GLFW_KEY_BACKSLASH:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_RIGHT_BRACKET:
+            return KEYBORAD_KEY_BRACKET_CLOSE;
+        case GLFW_KEY_GRAVE_ACCENT:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_WORLD_1:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_WORLD_2:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_ESCAPE:
+            return KEYBORAD_KEY_ESCAPE;
+        case GLFW_KEY_ENTER:
+            return KEYBORAD_KEY_ENTER;
+        case GLFW_KEY_TAB:
+            return KEYBORAD_KEY_TAB;
+        case GLFW_KEY_BACKSPACE:
+            return KEYBORAD_KEY_BACKSPACE;
+        case GLFW_KEY_INSERT:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_DELETE:
+            return KEYBORAD_KEY_DELETE;
+        case GLFW_KEY_RIGHT:
+            return KEYBORAD_KEY_RIGHT_ARROW;
+        case GLFW_KEY_LEFT:
+            return KEYBORAD_KEY_LEFT_ARROW;
+        case GLFW_KEY_DOWN:
+            return KEYBORAD_KEY_DOWN_ARROW;
+        case GLFW_KEY_UP:
+            return KEYBORAD_KEY_UP_ARROW;
+        case GLFW_KEY_PAGE_UP:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_PAGE_DOWN:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_HOME:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_END:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_CAPS_LOCK:
+            return KEYBORAD_KEY_CAPS;
+        case GLFW_KEY_SCROLL_LOCK:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_NUM_LOCK:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_PRINT_SCREEN:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_PAUSE:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_F1:
+            return KEYBORAD_KEY_F1;
+        case GLFW_KEY_F2:
+            return KEYBORAD_KEY_F2;
+        case GLFW_KEY_F3:
+            return KEYBORAD_KEY_F3;
+        case GLFW_KEY_F4:
+            return KEYBORAD_KEY_F4;
+        case GLFW_KEY_F5:
+            return KEYBORAD_KEY_F5;
+        case GLFW_KEY_F6:
+            return KEYBORAD_KEY_F6;
+        case GLFW_KEY_F7:
+            return KEYBORAD_KEY_F7;
+        case GLFW_KEY_F8:
+            return KEYBORAD_KEY_F8;
+        case GLFW_KEY_F9:
+            return KEYBORAD_KEY_F9;
+        case GLFW_KEY_F10:
+            return KEYBORAD_KEY_F10;
+        case GLFW_KEY_F11:
+            return KEYBORAD_KEY_F11;
+        case GLFW_KEY_F12:
+            return KEYBORAD_KEY_F12;
+        case GLFW_KEY_F13:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_F14:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_F15:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_F16:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_F17:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_F18:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_F19:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_F20:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_F21:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_F22:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_F23:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_F24:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_F25:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_0:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_1:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_2:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_3:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_4:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_5:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_6:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_7:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_8:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_9:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_DECIMAL:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_DIVIDE:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_MULTIPLY:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_SUBTRACT:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_ADD:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_ENTER:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_KP_EQUAL:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_LEFT_SHIFT:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_LEFT_CONTROL:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_LEFT_ALT:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_LEFT_SUPER:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_RIGHT_SHIFT:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_RIGHT_CONTROL:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_RIGHT_ALT:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_RIGHT_SUPER:
+            return KEYBORAD_KEY_NONE;
+        case GLFW_KEY_MENU:
+            return KEYBORAD_KEY_NONE;
+        default:
+            ROSINA_LOG_ERROR("Error. Invalid key value");
+            assert(false);
+    }
+}
+EventHandler keyboard_handle_fn = NULL;
+void _HandleGLFWKeyboardEvent(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    const Event e = {.keyboard_key = MapGLFWKeyToKeboardKey(key), .type = MapGLFWActionToEventType(action)};
+    keyboard_handle_fn(e);
+}
+void Window_SetKeyboardEventCallbackFunction(const Window window[static 1], const EventHandler handler)
+{
+    keyboard_handle_fn = handler;
+    glfwSetKeyCallback(window->handle, _HandleGLFWKeyboardEvent);
+}
+
+MouseButton MapGLFWButtonToMouseButton(const int button)
+{
+    switch (button)
+    {
+        case GLFW_MOUSE_BUTTON_1:
+            return MOUSE_BUTTON_1;
+        case GLFW_MOUSE_BUTTON_2:
+            return MOUSE_BUTTON_2;
+        case GLFW_MOUSE_BUTTON_3:
+            return MOUSE_BUTTON_3;
+        case GLFW_MOUSE_BUTTON_4:
+            return MOUSE_BUTTON_4;
+        case GLFW_MOUSE_BUTTON_5:
+            return MOUSE_BUTTON_5;
+        case GLFW_MOUSE_BUTTON_6:
+            return MOUSE_BUTTON_6;
+        case GLFW_MOUSE_BUTTON_7:
+            return MOUSE_BUTTON_7;
+        case GLFW_MOUSE_BUTTON_8:
+            return MOUSE_BUTTON_8;
+        default:
+            ROSINA_LOG_ERROR("Error. Invalid key value");
+            assert(false);
+    }
+}
+EventHandler mouse_button_handle_fn = NULL;
+void _HandleMouseButtonboardEvent(GLFWwindow* window, int button, int action, int mods)
+{
+    const Event e = {.mouse_button = MapGLFWButtonToMouseButton(button), .type = MapGLFWActionToEventType(action)};
+    mouse_button_handle_fn(e);
+}
+void Window_SetMouseEventCallbackFunction(const Window window[static 1], const EventHandler handler)
+{
+    mouse_button_handle_fn = handler;
+    glfwSetMouseButtonCallback(window->handle, _HandleMouseButtonboardEvent);
+}
+
+//

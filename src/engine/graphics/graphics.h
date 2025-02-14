@@ -2,6 +2,7 @@
 #define ROSINA_ENGINE_GRAPHICS_H
 
 #include <engine/backend/vulkan_helpers.h>
+#include <engine/event.h>
 #include <utility/math.h>
 #include <utility/memory_arena.h>
 
@@ -37,6 +38,10 @@ typedef struct WindowCreateInfo
 } WindowCreateInfo;
 
 Window Window_Create(const WindowCreateInfo create_info[static 1]);
+
+void Window_SetKeyboardEventCallbackFunction(const Window window[static 1], const EventHandler handler);
+
+void Window_SetMouseEventCallbackFunction(const Window window[static 1], const EventHandler handler);
 
 typedef enum RendererComponent
 {
@@ -104,8 +109,6 @@ typedef struct Renderer
 } Renderer;
 
 Renderer Renderer_Create();
-
-uint64_t Renderer_CalculateRequiredBytes(const Renderer renderer[static 1]);
 
 void Renderer_Cleanup(Renderer renderer[static 1]);
 
@@ -230,9 +233,8 @@ Shader Shader_Create(Renderer renderer[static 1], const ShaderCreateInfo create_
 
 static inline uint64_t Shader_CalculateRequiredBytes(const Renderer renderer[static 1])
 {
-    return renderer->frame_count * (sizeof(VkDescriptorSet) +    // Shader::descriptor_sets
-                                    sizeof(UniformBufferObject)  // Shader::ubos
-                                   );
+    return renderer->frame_count * (sizeof(VkDescriptorSet) +      // Shader::descriptor_sets
+                                    sizeof(UniformBufferObject));  // Shader::ubos
 }
 
 static inline void Shader_Bind(const Renderer renderer[static 1], const Shader shader[static 1])

@@ -28,6 +28,10 @@ void Application_Cleanup(Application application[static 1])
     }
 }
 
+void HandleKeyboardKeyEvent(const Event e) { printf("Event{%d, %d}\n", (int)e.keyboard_key, (int)e.type); }
+
+void HandleMouseButtonEvent(const Event e) { printf("Event{%d, %d}\n", (int)e.keyboard_key, (int)e.type); }
+
 Application Application_Create()
 {
     Application application = {.component_count = 0, .components = {}};
@@ -245,6 +249,9 @@ Application Application_Create()
         StagingBuffer_Cleanup(&application.renderer, &staging_buffer);
     }
 
+    Window_SetKeyboardEventCallbackFunction(&application.renderer.window, HandleKeyboardKeyEvent);
+    Window_SetMouseEventCallbackFunction(&application.renderer.window, HandleMouseButtonEvent);
+
     return application;
 }
 
@@ -254,8 +261,7 @@ void Application_Run(Application application[static 1])
     {
         glfwPollEvents();
 
-        if (Renderer_StartScene(&application->renderer))  // also binds graphics pipeline
-            break;
+        if (Renderer_StartScene(&application->renderer)) break;  // also binds graphics pipeline
 
         Shader_Bind(&application->renderer, &application->shader);
         VertexBufferObject_Bind(&application->renderer, &application->buffer_memory, &application->vbo);
