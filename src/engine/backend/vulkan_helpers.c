@@ -3,6 +3,105 @@
 #include <stdlib.h>
 #include <string.h>
 
+const char* string_VkResult(VkResult input_value)
+{
+    switch (input_value)
+    {
+        case VK_ERROR_COMPRESSION_EXHAUSTED_EXT:
+            return "VK_ERROR_COMPRESSION_EXHAUSTED_EXT";
+        case VK_ERROR_DEVICE_LOST:
+            return "VK_ERROR_DEVICE_LOST";
+        case VK_ERROR_EXTENSION_NOT_PRESENT:
+            return "VK_ERROR_EXTENSION_NOT_PRESENT";
+        case VK_ERROR_FEATURE_NOT_PRESENT:
+            return "VK_ERROR_FEATURE_NOT_PRESENT";
+        case VK_ERROR_FORMAT_NOT_SUPPORTED:
+            return "VK_ERROR_FORMAT_NOT_SUPPORTED";
+        case VK_ERROR_FRAGMENTATION:
+            return "VK_ERROR_FRAGMENTATION";
+        case VK_ERROR_FRAGMENTED_POOL:
+            return "VK_ERROR_FRAGMENTED_POOL";
+        case VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT:
+            return "VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT";
+        case VK_ERROR_IMAGE_USAGE_NOT_SUPPORTED_KHR:
+            return "VK_ERROR_IMAGE_USAGE_NOT_SUPPORTED_KHR";
+        case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR:
+            return "VK_ERROR_INCOMPATIBLE_DISPLAY_KHR";
+        case VK_ERROR_INCOMPATIBLE_DRIVER:
+            return "VK_ERROR_INCOMPATIBLE_DRIVER";
+        case VK_ERROR_INITIALIZATION_FAILED:
+            return "VK_ERROR_INITIALIZATION_FAILED";
+        case VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT:
+            return "VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT";
+        case VK_ERROR_INVALID_EXTERNAL_HANDLE:
+            return "VK_ERROR_INVALID_EXTERNAL_HANDLE";
+        case VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS:
+            return "VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS";
+        case VK_ERROR_INVALID_SHADER_NV:
+            return "VK_ERROR_INVALID_SHADER_NV";
+        case VK_ERROR_LAYER_NOT_PRESENT:
+            return "VK_ERROR_LAYER_NOT_PRESENT";
+        case VK_ERROR_MEMORY_MAP_FAILED:
+            return "VK_ERROR_MEMORY_MAP_FAILED";
+        case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR:
+            return "VK_ERROR_NATIVE_WINDOW_IN_USE_KHR";
+        case VK_ERROR_NOT_PERMITTED_KHR:
+            return "VK_ERROR_NOT_PERMITTED_KHR";
+        case VK_ERROR_OUT_OF_DATE_KHR:
+            return "VK_ERROR_OUT_OF_DATE_KHR";
+        case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+            return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
+        case VK_ERROR_OUT_OF_HOST_MEMORY:
+            return "VK_ERROR_OUT_OF_HOST_MEMORY";
+        case VK_ERROR_OUT_OF_POOL_MEMORY:
+            return "VK_ERROR_OUT_OF_POOL_MEMORY";
+        case VK_ERROR_SURFACE_LOST_KHR:
+            return "VK_ERROR_SURFACE_LOST_KHR";
+        case VK_ERROR_TOO_MANY_OBJECTS:
+            return "VK_ERROR_TOO_MANY_OBJECTS";
+        case VK_ERROR_UNKNOWN:
+            return "VK_ERROR_UNKNOWN";
+        case VK_ERROR_VALIDATION_FAILED_EXT:
+            return "VK_ERROR_VALIDATION_FAILED_EXT";
+        case VK_ERROR_VIDEO_PICTURE_LAYOUT_NOT_SUPPORTED_KHR:
+            return "VK_ERROR_VIDEO_PICTURE_LAYOUT_NOT_SUPPORTED_KHR";
+        case VK_ERROR_VIDEO_PROFILE_CODEC_NOT_SUPPORTED_KHR:
+            return "VK_ERROR_VIDEO_PROFILE_CODEC_NOT_SUPPORTED_KHR";
+        case VK_ERROR_VIDEO_PROFILE_FORMAT_NOT_SUPPORTED_KHR:
+            return "VK_ERROR_VIDEO_PROFILE_FORMAT_NOT_SUPPORTED_KHR";
+        case VK_ERROR_VIDEO_PROFILE_OPERATION_NOT_SUPPORTED_KHR:
+            return "VK_ERROR_VIDEO_PROFILE_OPERATION_NOT_SUPPORTED_KHR";
+        case VK_ERROR_VIDEO_STD_VERSION_NOT_SUPPORTED_KHR:
+            return "VK_ERROR_VIDEO_STD_VERSION_NOT_SUPPORTED_KHR";
+        case VK_EVENT_RESET:
+            return "VK_EVENT_RESET";
+        case VK_EVENT_SET:
+            return "VK_EVENT_SET";
+        case VK_INCOMPLETE:
+            return "VK_INCOMPLETE";
+        case VK_NOT_READY:
+            return "VK_NOT_READY";
+        case VK_OPERATION_DEFERRED_KHR:
+            return "VK_OPERATION_DEFERRED_KHR";
+        case VK_OPERATION_NOT_DEFERRED_KHR:
+            return "VK_OPERATION_NOT_DEFERRED_KHR";
+        case VK_PIPELINE_COMPILE_REQUIRED:
+            return "VK_PIPELINE_COMPILE_REQUIRED";
+        case VK_SUBOPTIMAL_KHR:
+            return "VK_SUBOPTIMAL_KHR";
+        case VK_SUCCESS:
+            return "VK_SUCCESS";
+        case VK_THREAD_DONE_KHR:
+            return "VK_THREAD_DONE_KHR";
+        case VK_THREAD_IDLE_KHR:
+            return "VK_THREAD_IDLE_KHR";
+        case VK_TIMEOUT:
+            return "VK_TIMEOUT";
+        default:
+            return "Unhandled VkResult";
+    }
+}
+
 uint32_t FindMemoryType(const VkPhysicalDevice physical_device, const uint32_t type_filter, const VkMemoryPropertyFlags properties)
 {
     VkPhysicalDeviceMemoryProperties memory_properties;
@@ -29,24 +128,24 @@ uint32_t FindQueueFamilyIndex(const VulkanDevice device[static 1], const FindQue
 
     for (uint32_t i = 0; i < queue_family_property_count; i++)
     {
-        if ((info->flags & QUEUE_CAPABLITY_FLAG_GRAPHICS_BIT) && !queue_family_properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        if ((info->flags & QUEUE_CAPABILITY_FLAG_GRAPHICS_BIT) && !queue_family_properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
         {
             continue;
         }
 
-        if ((info->flags & QUEUE_CAPABLITY_FLAG_TRANSFER_BIT) && !(queue_family_properties[i].queueFlags & VK_QUEUE_TRANSFER_BIT))
+        if ((info->flags & QUEUE_CAPABILITY_FLAG_TRANSFER_BIT) && !(queue_family_properties[i].queueFlags & VK_QUEUE_TRANSFER_BIT))
         {
             continue;
         }
 
-        if ((info->flags & QUEUE_CAPABLITY_FLAG_COMPUTE_BIT) && !(queue_family_properties[i].queueFlags & VK_QUEUE_COMPUTE_BIT))
+        if ((info->flags & QUEUE_CAPABILITY_FLAG_COMPUTE_BIT) && !(queue_family_properties[i].queueFlags & VK_QUEUE_COMPUTE_BIT))
         {
             continue;
         }
 
         VkBool32 surface_supported = VK_FALSE;
         VK_ERROR_HANDLE(vkGetPhysicalDeviceSurfaceSupportKHR(device->physical_device, i, info->surface, &surface_supported), { return UINT32_MAX; });
-        if ((info->flags & QUEUE_CAPABLITY_FLAG_PRESENT_BIT) && surface_supported != VK_TRUE)
+        if ((info->flags & QUEUE_CAPABILITY_FLAG_PRESENT_BIT) && surface_supported != VK_TRUE)
         {
             continue;
         }
@@ -214,7 +313,7 @@ bool CreateVulkanDevice(const VulkanDeviceCreateInfo create_info[static 1], Vulk
     uint32_t queue_family_index_count    = 0;
     uint32_t* const queue_family_indices = calloc(3, sizeof(uint32_t));
     {
-        FindQueueFamilyIndexInfo find_info = {.flags = QUEUE_CAPABLITY_FLAG_GRAPHICS_BIT, .queue_count = 1, .surface = create_info->surface};
+        FindQueueFamilyIndexInfo find_info = {.flags = QUEUE_CAPABILITY_FLAG_GRAPHICS_BIT, .queue_count = 1, .surface = create_info->surface};
 
         device->graphics_queue.family_index = FindQueueFamilyIndex(device, &find_info);
         if (device->graphics_queue.family_index == UINT32_MAX)
@@ -225,7 +324,7 @@ bool CreateVulkanDevice(const VulkanDeviceCreateInfo create_info[static 1], Vulk
         device->graphics_queue.queue_index               = 0;
         queue_family_indices[queue_family_index_count++] = device->graphics_queue.family_index;
 
-        find_info.flags                     = QUEUE_CAPABLITY_FLAG_TRANSFER_BIT;
+        find_info.flags                     = QUEUE_CAPABILITY_FLAG_TRANSFER_BIT;
         device->transfer_queue.family_index = FindQueueFamilyIndex(device, &find_info);
         if (device->transfer_queue.family_index == UINT32_MAX)
         {
@@ -235,7 +334,7 @@ bool CreateVulkanDevice(const VulkanDeviceCreateInfo create_info[static 1], Vulk
         device->transfer_queue.queue_index               = 0;
         queue_family_indices[queue_family_index_count++] = device->transfer_queue.family_index;
 
-        find_info.flags                    = QUEUE_CAPABLITY_FLAG_PRESENT_BIT;
+        find_info.flags                    = QUEUE_CAPABILITY_FLAG_PRESENT_BIT;
         device->present_queue.family_index = FindQueueFamilyIndex(device, &find_info);
         if (device->present_queue.family_index == UINT32_MAX)
         {
@@ -334,15 +433,22 @@ bool VulkanSwapchain_Create(const VulkanDevice device[static 1], const VulkanSwa
 
         // Here is an example of how to do this differently?
         // https://github.com/LunarG/VulkanSamples/blob/master/API-Samples/05-init_swapchain/05-init_swapchain.cpp#L170
-        if (capabilities.currentExtent.width == UINT32_MAX)
+        if (capabilities.currentExtent.width == 0xFFFFFFFF)
         {
-            const uint32_t min_width =
-                capabilities.minImageExtent.width > swapchain->extent.width ? capabilities.minImageExtent.width : swapchain->extent.width;
-            swapchain->extent.width = capabilities.maxImageExtent.width < min_width ? capabilities.maxImageExtent.width : min_width;
+            swapchain->extent.width = create_info->width;
+            swapchain->extent.height = create_info->height;
 
-            const uint32_t min_height =
-                capabilities.minImageExtent.height > swapchain->extent.height ? capabilities.minImageExtent.height : swapchain->extent.height;
-            swapchain->extent.height = capabilities.maxImageExtent.height < min_height ? capabilities.maxImageExtent.height : min_height;
+            if (swapchain->extent.width < capabilities.minImageExtent.width) {
+                swapchain->extent.width = capabilities.minImageExtent.width;
+            } else if (swapchain->extent.width > capabilities.maxImageExtent.width) {
+                swapchain->extent.width = capabilities.maxImageExtent.width;
+            }
+
+            if (swapchain->extent.height < capabilities.minImageExtent.height) {
+                swapchain->extent.height = capabilities.minImageExtent.height;
+            } else if (swapchain->extent.height > capabilities.maxImageExtent.height) {
+                swapchain->extent.height = capabilities.maxImageExtent.height;
+            }
         }
         else
         {

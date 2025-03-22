@@ -1,11 +1,9 @@
 #ifndef SANDBOX_APPLICATION_H
 #define SANDBOX_APPLICATION_H
 
-#include <engine/graphics/graphics.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <utility/math.h>
+#include <engine/graphics/renderer.h>
+#include <engine/graphics/shader.h>
+#include <engine/graphics/image.h>
 
 typedef enum ApplicationComponent
 {
@@ -13,6 +11,7 @@ typedef enum ApplicationComponent
     APPLICATION_MEMORY_ARENA_COMPONENT,
     APPLICATION_SHADER_COMPONENT,
     APPLICATION_BUFFER_MEMORY_COMPONENT,
+    APPLICATION_IMAGE_COMPONENT,
     APPLICATION_COMPONENT_COUNT
 } ApplicationComponent;
 
@@ -26,6 +25,7 @@ typedef struct Application
     IndexBufferObject ibo;
     Shader shader;
     BufferMemory buffer_memory;
+    Image image;
 } Application;
 
 void Application_Cleanup(Application application[static 1]);

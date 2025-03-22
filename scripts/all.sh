@@ -23,7 +23,7 @@ glslc ./shaders/shader.frag -o ./compiled_shaders/fragment.spv;
 
 echo "compiled shaders!"
 
-cmake -S . -B build
+cmake -S . -B build -D GLFW_BUILD_WAYLAND=1
 
 echo "configured prject!"
 

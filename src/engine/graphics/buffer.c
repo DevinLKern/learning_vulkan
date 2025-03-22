@@ -1,5 +1,7 @@
+#include <engine/graphics/buffer.h>
+
 #include <assert.h>
-#include <engine/graphics/graphics.h>
+#include <string.h>
 
 StagingBuffer StagingBuffer_Create(const Renderer renderer[static 1], const uint64_t size)
 {
@@ -25,7 +27,7 @@ StagingBuffer StagingBuffer_Create(const Renderer renderer[static 1], const uint
         const VkMemoryAllocateInfo buffer_alloc_info = {
             .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             .pNext           = NULL,
-            .allocationSize  = size,
+            .allocationSize  = (VkDeviceSize)size,
             .memoryTypeIndex = FindMemoryType(renderer->device.physical_device, mem_requirements.memoryTypeBits,
                                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)};
 
@@ -90,6 +92,14 @@ void BufferMemory_Cleanup(const Renderer renderer[static 1], BufferMemory memory
     }
 }
 
+VkDeviceSize VkDeviceSize_RoundUpTo(const VkDeviceSize x, const VkDeviceSize y)
+{
+    VkDeviceSize z = x % y;
+    if (z == 0) return x;
+    z = y - z;
+    return x + z;
+}
+
 BufferMemory BufferMemory_Create(const Renderer renderer[static 1], BufferMemoryCreateInfo buffer_memory_create_info[static 1])
 {
     BufferMemory memory = {.component_count = 0,
@@ -147,37 +157,39 @@ BufferMemory BufferMemory_Create(const Renderer renderer[static 1], BufferMemory
     {
         uint32_t memory_type_bits = 0;
         VkMemoryRequirements reqs;
+        VkDeviceSize offset = 0;
+        VkDeviceSize size = 0;
 
         if (buffer_memory_create_info->vertex_buffer_capacity > 0)
         {
             vkGetBufferMemoryRequirements(renderer->device.handle, memory.vertex_buffer, &reqs);
-            buffer_memory_create_info->vertex_buffer_capacity +=
-                (reqs.alignment - (buffer_memory_create_info->vertex_buffer_capacity % reqs.alignment)) % reqs.alignment;
             memory_type_bits |= reqs.memoryTypeBits;
+            offset = VkDeviceSize_RoundUpTo(size, reqs.alignment);
+            size = offset + reqs.size;
         }
 
         if (buffer_memory_create_info->index_buffer_capacity > 0)
         {
             vkGetBufferMemoryRequirements(renderer->device.handle, memory.index_buffer, &reqs);
-            buffer_memory_create_info->index_buffer_capacity +=
-                (reqs.alignment - (buffer_memory_create_info->index_buffer_capacity % reqs.alignment)) % reqs.alignment;
             memory_type_bits |= reqs.memoryTypeBits;
+            offset = VkDeviceSize_RoundUpTo(size, reqs.alignment);
+            size = offset + reqs.size;
         }
 
         if (buffer_memory_create_info->uniform_buffer_capacity > 0)
         {
             vkGetBufferMemoryRequirements(renderer->device.handle, memory.uniform_buffer, &reqs);
-            buffer_memory_create_info->uniform_buffer_capacity +=
-                (reqs.alignment - (buffer_memory_create_info->uniform_buffer_capacity % reqs.alignment)) % reqs.alignment;
             memory_type_bits |= reqs.memoryTypeBits;
+            offset = VkDeviceSize_RoundUpTo(size, reqs.alignment);
+            size = offset + reqs.size;
         }
 
         const VkMemoryAllocateInfo buffer_alloc_info = {
             .sType          = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             .pNext          = NULL,
-            .allocationSize = buffer_memory_create_info->vertex_buffer_capacity + buffer_memory_create_info->index_buffer_capacity +
-                              buffer_memory_create_info->uniform_buffer_capacity,
-            .memoryTypeIndex = FindMemoryType(renderer->device.physical_device, memory_type_bits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)};
+            .allocationSize = size,
+            .memoryTypeIndex = FindMemoryType(renderer->device.physical_device, memory_type_bits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+        };
 
         VK_ERROR_HANDLE(vkAllocateMemory(renderer->device.handle, &buffer_alloc_info, NULL, &memory.handle), {
             BufferMemory_Cleanup(renderer, &memory);
@@ -189,35 +201,44 @@ BufferMemory BufferMemory_Create(const Renderer renderer[static 1], BufferMemory
 
     // bind offsets
     {
-        VkDeviceSize current_offset = 0;
+        VkMemoryRequirements reqs;
+        VkDeviceSize offset = 0;
+        VkDeviceSize size = 0;
 
         if (buffer_memory_create_info->vertex_buffer_capacity > 0)
         {
-            VK_ERROR_HANDLE(vkBindBufferMemory(renderer->device.handle, memory.vertex_buffer, memory.handle, current_offset), {
+            vkGetBufferMemoryRequirements(renderer->device.handle, memory.vertex_buffer, &reqs);
+            offset = VkDeviceSize_RoundUpTo(size, reqs.alignment);
+            size = offset + reqs.size;
+            VK_ERROR_HANDLE(vkBindBufferMemory(renderer->device.handle, memory.vertex_buffer, memory.handle, offset), {
                 BufferMemory_Cleanup(renderer, &memory);
                 return memory;
             });
-            current_offset += buffer_memory_create_info->vertex_buffer_capacity;
         }
 
         if (buffer_memory_create_info->index_buffer_capacity > 0)
         {
-            VK_ERROR_HANDLE(vkBindBufferMemory(renderer->device.handle, memory.index_buffer, memory.handle, current_offset), {
+            vkGetBufferMemoryRequirements(renderer->device.handle, memory.index_buffer, &reqs);
+            offset = VkDeviceSize_RoundUpTo(size, reqs.alignment);
+            size = offset + reqs.size;
+            VK_ERROR_HANDLE(vkBindBufferMemory(renderer->device.handle, memory.index_buffer, memory.handle, offset), {
                 BufferMemory_Cleanup(renderer, &memory);
                 return memory;
             });
-            current_offset += buffer_memory_create_info->index_buffer_capacity;
         }
 
         if (buffer_memory_create_info->uniform_buffer_capacity > 0)
         {
-            VK_ERROR_HANDLE(vkBindBufferMemory(renderer->device.handle, memory.uniform_buffer, memory.handle, current_offset), {
+            vkGetBufferMemoryRequirements(renderer->device.handle, memory.uniform_buffer, &reqs);
+            offset = VkDeviceSize_RoundUpTo(size, reqs.alignment);
+            size = offset + reqs.size;
+            VK_ERROR_HANDLE(vkBindBufferMemory(renderer->device.handle, memory.uniform_buffer, memory.handle, offset), {
                 BufferMemory_Cleanup(renderer, &memory);
                 return memory;
             });
-            current_offset += buffer_memory_create_info->uniform_buffer_capacity;
         }
     }
 
     return memory;
 }
+

@@ -5,10 +5,12 @@ int main()
     Application application = Application_Create();
     if (application.component_count == 0)
     {
-        return 0;
+        return 1;
     }
 
     Application_Run(&application);
 
     Application_Cleanup(&application);
+
+    return 0;
 }

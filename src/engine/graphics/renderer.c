@@ -1,9 +1,15 @@
+#include <engine/graphics/renderer.h>
+
 #include <assert.h>
-#include <engine/graphics/graphics.h>
 #include <stdlib.h>
 
 void Renderer_Cleanup(Renderer renderer[static 1])
 {
+    if (renderer->device.handle != VK_NULL_HANDLE)
+    {
+        vkDeviceWaitIdle(renderer->device.handle);
+    }
+
     while (renderer->component_count > 0)
     {
         switch (renderer->components[--renderer->component_count])
@@ -85,7 +91,7 @@ void Renderer_Cleanup(Renderer renderer[static 1])
                     renderer->render_finished[i] = VK_NULL_HANDLE;
                 }
                 break;
-            case RENDERER_GRAPHICS_PIPELINE_COMPONENT:
+            case RENDERER_GRAPHICS_PIPELINE_COMPONENT: // TODO: move this out of the renderer
                 DestroyVulkanGraphicsPipeline(&renderer->device, &renderer->graphics_pipeline);
                 break;
             case RENDERER_COMMAND_POOLS_COMPONENT:
@@ -109,6 +115,7 @@ Renderer Renderer_Create()
         .components      = {},
     };
 
+    // link
     {
         renderer.link = GraphicsLink_Create(true);
         if (renderer.link.instance == VK_NULL_HANDLE)
@@ -120,6 +127,7 @@ Renderer Renderer_Create()
         renderer.components[renderer.component_count++] = RENDERER_LINK_COMPONENT;
     }
 
+    // window
     {
         const WindowCreateInfo window_create_info = {.width = 1000, .height = 1000, .title = "GLFWWindow", .link = &renderer.link};
         renderer.window                           = Window_Create(&window_create_info);
@@ -132,10 +140,11 @@ Renderer Renderer_Create()
         renderer.components[renderer.component_count++] = RENDERER_WINDOW_COMPONENT;
     }
 
+    // device
     {
         // create vulkan device
         {
-            const VulkanDeviceCreateInfo device_create_info = {.queue_capabilities = QUEUE_CAPABLITY_FLAG_GRAPHICS_BIT | QUEUE_CAPABLITY_FLAG_PRESENT_BIT,
+            const VulkanDeviceCreateInfo device_create_info = {.queue_capabilities = QUEUE_CAPABILITY_FLAG_GRAPHICS_BIT | QUEUE_CAPABILITY_FLAG_PRESENT_BIT,
                                                                .instance           = renderer.link.instance,
                                                                .surface            = renderer.window.surface};
             if (CreateVulkanDevice(&device_create_info, &renderer.device))
@@ -245,7 +254,7 @@ Renderer Renderer_Create()
             .flags                 = 0,
             .imageType             = VK_IMAGE_TYPE_2D,
             .format                = renderer.render_pass.depth_format,
-            .extent                = {.width = renderer.swapchain.extent.width, .height = renderer.swapchain.extent.height, .depth = 1},
+            .extent                = {.width = renderer.window.width, .height = renderer.window.width, .depth = 1},
             .mipLevels             = 1,
             .arrayLayers           = 1,
             .samples               = VK_SAMPLE_COUNT_1_BIT,
@@ -333,7 +342,7 @@ Renderer Renderer_Create()
             VK_ERROR_HANDLE(vkCreateImageView(renderer.device.handle, &image_view_create_info, NULL, renderer.depth_image_views + i), {
                 for (uint32_t j = 0; j < i; j++)
                 {
-                    vkDestroyImageView(renderer.device.handle, renderer.depth_image_views[i], NULL);
+                    vkDestroyImageView(renderer.device.handle, renderer.depth_image_views[j], NULL);
                 }
                 Renderer_Cleanup(&renderer);
                 return renderer;
@@ -366,7 +375,7 @@ Renderer Renderer_Create()
             VK_ERROR_HANDLE(vkCreateImageView(renderer.device.handle, &image_view_create_info, NULL, renderer.swapchain_image_views + i), {
                 for (uint32_t j = 0; j < i; j++)
                 {
-                    vkDestroyImageView(renderer.device.handle, renderer.swapchain_image_views[i], NULL);
+                    vkDestroyImageView(renderer.device.handle, renderer.swapchain_image_views[j], NULL);
                 }
                 Renderer_Cleanup(&renderer);
                 return renderer;
@@ -392,14 +401,16 @@ Renderer Renderer_Create()
                                                                      .width           = renderer.window.width,
                                                                      .height          = renderer.window.height,
                                                                      .layers          = 1};
-            VK_ERROR_HANDLE(vkCreateFramebuffer(renderer.device.handle, &framebuffer_create_info, NULL, renderer.framebuffers + i), {
+            const VkResult r = vkCreateFramebuffer(renderer.device.handle, &framebuffer_create_info, NULL, renderer.framebuffers + i);
+            if (r != VK_SUCCESS) {
+                ROSINA_LOG_ERROR("%s\n", string_VkResult((r)));
                 for (uint32_t j = 0; j < i; j++)
                 {
                     vkDestroyFramebuffer(renderer.device.handle, renderer.framebuffers[j], NULL);
                 }
                 Renderer_Cleanup(&renderer);
                 return renderer;
-            });
+            };
         }
 
         renderer.components[renderer.component_count++] = RENDERER_FRAMEBUFFERS_COMPONENT;
@@ -515,22 +526,4 @@ Renderer Renderer_Create()
     }
 
     return renderer;
-}
-
-bool Renderer_InitializeGraphicsPipeline(Renderer renderer[static 1], Shader shader[static 1])
-{
-    const VulkanGraphicsPipelineCreateInfo pipeline_create_info = {.render_pass            = &renderer->render_pass,
-                                                                   .vertex_shader_module   = shader->vertex_module,
-                                                                   .fragment_shader_module = shader->fragment_module,
-                                                                   .vertex_shader_layout   = shader->vertex_layout,
-                                                                   .fragment_shader_layout = shader->fragment_layout,
-                                                                   .width                  = renderer->window.width,
-                                                                   .height                 = renderer->window.height};
-    if (CreateVulkanGraphicsPipeline(&renderer->device, &pipeline_create_info, &renderer->graphics_pipeline))
-    {
-        return true;
-    }
-
-    renderer->components[renderer->component_count++] = RENDERER_GRAPHICS_PIPELINE_COMPONENT;
-    return false;
 }

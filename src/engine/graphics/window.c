@@ -1,6 +1,22 @@
+#include <engine/graphics/window.h>
+
 #include <assert.h>
-#include <engine/graphics/graphics.h>
 #include <string.h>
+#include <stdbool.h>
+
+#include <engine/backend/vulkan_helpers.h>
+
+#include <utility/memory_arena.h>
+
+void GraphicsLink_Cleanup(GraphicsLink link[static 1])
+{
+    vkDestroyDebugUtilsMessengerEXT(link->instance, link->debug_messenger, NULL);
+    link->debug_messenger = VK_NULL_HANDLE;
+    vkDestroyInstance(link->instance, NULL);
+    link->instance = VK_NULL_HANDLE;
+
+    glfwTerminate();
+}
 
 bool GetRequiredGLFWExtensions(uint32_t extension_count[static 1], const char** extension_names)
 {
@@ -230,28 +246,28 @@ GraphicsLink GraphicsLink_Create(const bool debug)
     return link;
 }
 
-void GraphicsLink_Cleanup(GraphicsLink link[static 1])
-{
-    vkDestroyDebugUtilsMessengerEXT(link->instance, link->debug_messenger, NULL);
-    link->debug_messenger = VK_NULL_HANDLE;
-    vkDestroyInstance(link->instance, NULL);
-    link->instance = VK_NULL_HANDLE;
-    glfwTerminate();
-}
-
 void Window_Cleanup(const GraphicsLink link[static 1], Window window[static 1])
 {
+    assert(window->surface != VK_NULL_HANDLE);
+    assert(window->handle != NULL);
+
     vkDestroySurfaceKHR(link->instance, window->surface, NULL);
     window->surface = VK_NULL_HANDLE;
     glfwDestroyWindow(window->handle);
     window->handle = NULL;
+
 }
 
 Window Window_Create(const WindowCreateInfo create_info[static 1])
 {
     Window window = {.handle = NULL, .width = UINT32_MAX, .height = UINT32_MAX};
 
-    window.handle = glfwCreateWindow(create_info->width, create_info->height, create_info->title, NULL, NULL);
+    window.handle = glfwCreateWindow((int)create_info->width, (int)create_info->height, create_info->title, NULL, NULL);
+    if (window.handle == NULL)
+    {
+        ROSINA_LOG_ERROR("Failed to create window");
+        return window;
+    }
 
     window.width  = create_info->width;
     window.height = create_info->height;
@@ -281,7 +297,7 @@ EventType MapGLFWActionToEventType(const int action)
     }
 }
 
-KeyboardKey MapGLFWKeyToKeboardKey(const int key)
+KeyboardKey MapGLFWKeyToKeyboardKey(const int key)
 {
     switch (key)
     {
@@ -531,15 +547,15 @@ KeyboardKey MapGLFWKeyToKeboardKey(const int key)
     }
 }
 EventHandler keyboard_handle_fn = NULL;
-void _HandleGLFWKeyboardEvent(GLFWwindow* window, int key, int scancode, int action, int mods)
+void HandleGLFWKeyboardEvent(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    const Event e = {.keyboard_key = MapGLFWKeyToKeboardKey(key), .type = MapGLFWActionToEventType(action)};
+    const Event e = {.keyboard_key = MapGLFWKeyToKeyboardKey(key), .type = MapGLFWActionToEventType(action)};
     keyboard_handle_fn(e);
 }
 void Window_SetKeyboardEventCallbackFunction(const Window window[static 1], const EventHandler handler)
 {
     keyboard_handle_fn = handler;
-    glfwSetKeyCallback(window->handle, _HandleGLFWKeyboardEvent);
+    glfwSetKeyCallback(window->handle, HandleGLFWKeyboardEvent);
 }
 
 MouseButton MapGLFWButtonToMouseButton(const int button)

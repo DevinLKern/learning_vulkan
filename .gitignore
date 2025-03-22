@@ -2,3 +2,5 @@ build
 compiled_shaders
 .vscode
 out.txt
+cmake-build-debug
+.idea

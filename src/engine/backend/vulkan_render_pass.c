@@ -19,7 +19,8 @@ static inline bool SelectVkSurfaceFormat(const VkSurfaceKHR surface, const VkPhy
         free(supported_surface_formats);
         return true;
     }
-    else if (supported_surface_format_count == 1 && supported_surface_formats[0].format == VK_FORMAT_UNDEFINED)
+
+    if (supported_surface_format_count == 1 && supported_surface_formats[0].format == VK_FORMAT_UNDEFINED)
     {
         surface_format->format     = VK_FORMAT_B8G8R8A8_UNORM;
         surface_format->colorSpace = supported_surface_formats[0].colorSpace;
@@ -58,28 +59,31 @@ static inline bool SelectDepthFormat(const VkPhysicalDevice physical_device, VkF
 static inline bool CreateVkRenderPass(const VkSurfaceFormatKHR surface_format, const VkFormat depth_format, const VulkanDevice device[static 1],
                                       VkRenderPass render_pass[static 1])
 {
-    const VkAttachmentDescription2 attachments[] = {{.sType          = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
-                                                     .pNext          = NULL,
-                                                     .flags          = 0,
-                                                     .format         = surface_format.format,
-                                                     .samples        = VK_SAMPLE_COUNT_1_BIT,
-                                                     .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
-                                                     .storeOp        = VK_ATTACHMENT_STORE_OP_STORE,
-                                                     .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-                                                     .stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE,
-                                                     .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,  // could be VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ?
-                                                     .finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR},
-                                                    {.sType          = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
-                                                     .pNext          = NULL,
-                                                     .flags          = 0,
-                                                     .format         = depth_format,
-                                                     .samples        = VK_SAMPLE_COUNT_1_BIT,
-                                                     .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
-                                                     .storeOp        = VK_ATTACHMENT_STORE_OP_STORE,
-                                                     .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-                                                     .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                                                     .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
-                                                     .finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR}};
+    const VkAttachmentDescription2 attachments[] = {{
+        .sType          = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+        .pNext          = NULL,
+        .flags          = 0,
+        .format         = surface_format.format,
+        .samples        = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp        = VK_ATTACHMENT_STORE_OP_STORE,
+        .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+    }, {
+        .sType          = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+        .pNext          = NULL,
+        .flags          = 0,
+        .format         = depth_format,
+        .samples        = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp        = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+    }};
 
     const VkAttachmentReference2 color_attachment_refs[] = {{
         .sType      = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
@@ -95,32 +99,34 @@ static inline bool CreateVkRenderPass(const VkSurfaceFormatKHR surface_format, c
         .layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
         .aspectMask = depth_format,
     }};
-    const VkSubpassDescription2 subpasses[]              = {{
-                     .sType                   = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
-                     .pNext                   = NULL,
-                     .flags                   = 0,
-                     .pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS,
-                     .viewMask                = 0,
-                     .inputAttachmentCount    = 0,
-                     .pInputAttachments       = NULL,
-                     .colorAttachmentCount    = sizeof(color_attachment_refs) / sizeof(VkAttachmentReference2),
-                     .pColorAttachments       = color_attachment_refs,
-                     .pResolveAttachments     = NULL,
-                     .pDepthStencilAttachment = depth_attachment_refs,
-                     .preserveAttachmentCount = 0,
-                     .pPreserveAttachments    = NULL,
+    const VkSubpassDescription2 subpass_descriptios[] = {{
+        .sType                   = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
+        .pNext                   = NULL,
+        .flags                   = 0,
+        .pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .viewMask                = 0,
+        .inputAttachmentCount    = 0,
+        .pInputAttachments       = NULL,
+        .colorAttachmentCount    = sizeof(color_attachment_refs) / sizeof(VkAttachmentReference2),
+        .pColorAttachments       = color_attachment_refs,
+        .pResolveAttachments     = NULL,
+        .pDepthStencilAttachment = depth_attachment_refs,
+        .preserveAttachmentCount = 0,
+        .pPreserveAttachments    = NULL,
     }};
 
-    const VkSubpassDependency2 dependencies[] = {{.sType           = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
-                                                  .pNext           = NULL,
-                                                  .srcSubpass      = 0,
-                                                  .dstSubpass      = VK_SUBPASS_EXTERNAL,
-                                                  .srcStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-                                                  .dstStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-                                                  .srcAccessMask   = 0,
-                                                  .dstAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                                                  .dependencyFlags = 0,
-                                                  .viewOffset      = 0}};
+    const VkSubpassDependency2 dependencies[] = {{
+        .sType           = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
+        .pNext           = NULL,
+        .srcSubpass      = 0,
+        .dstSubpass      = VK_SUBPASS_EXTERNAL,
+        .srcStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+        .dstStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+        .srcAccessMask   = 0,
+        .dstAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        .dependencyFlags = 0,
+        .viewOffset      = 0
+    }};
 
     const VkRenderPassCreateInfo2 create_info = {
         .sType                   = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,
@@ -128,12 +134,12 @@ static inline bool CreateVkRenderPass(const VkSurfaceFormatKHR surface_format, c
         .flags                   = 0,
         .attachmentCount         = sizeof(attachments) / sizeof(VkAttachmentDescription2),
         .pAttachments            = attachments,
-        .subpassCount            = sizeof(subpasses) / sizeof(VkSubpassDescription2),
-        .pSubpasses              = subpasses,
+        .subpassCount            = sizeof(subpass_descriptios) / sizeof(VkSubpassDescription2),
+        .pSubpasses              = subpass_descriptios,
         .dependencyCount         = sizeof(dependencies) / sizeof(VkSubpassDependency2),
         .pDependencies           = dependencies,
         .correlatedViewMaskCount = 0,
-        .pCorrelatedViewMasks    = 0,
+        .pCorrelatedViewMasks    = NULL,
     };
 
     VK_ERROR_RETURN(vkCreateRenderPass2(device->handle, &create_info, NULL, render_pass), true);

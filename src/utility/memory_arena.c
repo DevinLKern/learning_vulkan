@@ -1,16 +1,15 @@
-#include <utility/memory_arena.h>
-
 #include <stdlib.h>
 #include <string.h>
+#include <utility/memory_arena.h>
+#include <vulkan/vulkan_core.h>
 
 MemoryArena MemoryArena_Create(const uint64_t capacity) {
-    void* const bytes = malloc(capacity);
-    memset(bytes, 0, capacity);
-
     MemoryArena arena = {
-        .memory = bytes,
-        .alloc_pos = bytes
+        .memory = calloc(capacity, 1),
+        .alloc_pos = NULL
     };
+    arena.alloc_pos = arena.memory;
+
     return arena;
 }
 

@@ -1,5 +1,7 @@
+#include <engine/graphics/shader.h>
+
 #include <assert.h>
-#include <engine/graphics/graphics.h>
+
 #include <utility/load_file.h>
 #include <utility/log.h>
 
@@ -10,37 +12,40 @@ Shader Shader_Create(Renderer renderer[static 1], const ShaderCreateInfo create_
     assert(create_info->arena != NULL);
     assert(create_info->memory != NULL);
 
-    Shader shader = {.component_count = 0,
-                     .components      = {},
-                     .vertex_layout   = VK_NULL_HANDLE,
-                     .fragment_layout = VK_NULL_HANDLE,
-                     .vertex_module   = VK_NULL_HANDLE,
-                     .fragment_module = VK_NULL_HANDLE,
-                     .descriptor_pool = VK_NULL_HANDLE,
-                     .descriptor_sets = NULL,
-                     .ubos            = NULL};
+    Shader shader = {
+        .component_count = 0,
+        .components      = {},
+        .layout          = VK_NULL_HANDLE,
+        .vertex_module   = VK_NULL_HANDLE,
+        .fragment_module = VK_NULL_HANDLE,
+        .descriptor_pool = VK_NULL_HANDLE,
+        .descriptor_set  = VK_NULL_HANDLE,
+        .ubo             = {.offset = 0, .size = 0},
+    };
 
     // layouts
     {
-        const VkDescriptorSetLayoutBinding bindings[]                   = {{.binding            = 0,
-                                                                            .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                                                            .descriptorCount    = 1,
-                                                                            .stageFlags         = VK_SHADER_STAGE_VERTEX_BIT,
-                                                                            .pImmutableSamplers = NULL}};
-        const VkDescriptorSetLayoutCreateInfo vertex_layout_create_info = {.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-                                                                           .pNext        = NULL,
-                                                                           .flags        = 0,
-                                                                           .bindingCount = sizeof(bindings) / sizeof(VkDescriptorSetLayoutBinding),
-                                                                           .pBindings    = bindings};
-        VK_ERROR_HANDLE(vkCreateDescriptorSetLayout(renderer->device.handle, &vertex_layout_create_info, NULL, &shader.vertex_layout), {
-            Shader_Cleanup(renderer, &shader);
-            return shader;
-        });
-
-        const VkDescriptorSetLayoutCreateInfo fragment_layout_create_info = {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, .pNext = NULL, .flags = 0, .bindingCount = 0, .pBindings = NULL};
-        VK_ERROR_HANDLE(vkCreateDescriptorSetLayout(renderer->device.handle, &fragment_layout_create_info, NULL, &shader.fragment_layout), {
-            vkDestroyDescriptorSetLayout(renderer->device.handle, shader.vertex_layout, NULL);
+        const VkDescriptorSetLayoutBinding bindings[] = {{
+            .binding            = 0,
+            .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount    = 1,
+            .stageFlags         = VK_SHADER_STAGE_VERTEX_BIT,
+            .pImmutableSamplers = NULL
+        }, {
+            .binding            = 1,
+            .descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount    = 1,
+            .stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .pImmutableSamplers = NULL
+        }};
+        const VkDescriptorSetLayoutCreateInfo vertex_layout_create_info = {
+            .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .pNext        = NULL,
+            .flags        = 0,
+            .bindingCount = sizeof(bindings) / sizeof(VkDescriptorSetLayoutBinding),
+            .pBindings    = bindings
+        };
+        VK_ERROR_HANDLE(vkCreateDescriptorSetLayout(renderer->device.handle, &vertex_layout_create_info, NULL, &shader.layout), {
             Shader_Cleanup(renderer, &shader);
             return shader;
         });
@@ -50,13 +55,23 @@ Shader Shader_Create(Renderer renderer[static 1], const ShaderCreateInfo create_
 
     // pool
     {
-        const VkDescriptorPoolSize pool_sizes[]           = {{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = renderer->frame_count}};
-        const VkDescriptorPoolCreateInfo pool_create_info = {.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-                                                             .pNext         = NULL,
-                                                             .flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-                                                             .maxSets       = renderer->frame_count,
-                                                             .poolSizeCount = sizeof(pool_sizes) / sizeof(VkDescriptorPoolSize),
-                                                             .pPoolSizes    = pool_sizes};
+        const VkDescriptorPoolSize pool_sizes[] = {
+            {.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = renderer->frame_count},
+            {.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = renderer->frame_count}
+        };
+        uint32_t max_sets = 0;
+        for (uint32_t i = 0; i < sizeof(pool_sizes) / sizeof(VkDescriptorPoolSize); i++)
+        {
+            max_sets += pool_sizes[i].descriptorCount;
+        }
+        const VkDescriptorPoolCreateInfo pool_create_info = {
+            .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .pNext         = NULL,
+            .flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+            .maxSets       = max_sets,
+            .poolSizeCount = sizeof(pool_sizes) / sizeof(VkDescriptorPoolSize),
+            .pPoolSizes    = pool_sizes
+        };
         VK_ERROR_HANDLE(vkCreateDescriptorPool(renderer->device.handle, &pool_create_info, NULL, &shader.descriptor_pool), {
             Shader_Cleanup(renderer, &shader);
             return shader;
@@ -128,47 +143,57 @@ Shader Shader_Create(Renderer renderer[static 1], const ShaderCreateInfo create_
 
     // descriptor sets
     {
-        shader.descriptor_sets               = MemoryArena_Allocate(create_info->arena, renderer->frame_count * sizeof(VkDescriptorSet));
-        VkDescriptorSetLayout* const layouts = calloc(renderer->frame_count, sizeof(VkDescriptorSetLayout));
-        for (uint32_t i = 0; i < renderer->frame_count; i++)
-        {
-            layouts[i] = shader.vertex_layout;
-        }
+        VkDescriptorSetLayout layout = shader.layout;
 
-        const VkDescriptorSetAllocateInfo alloc_info = {.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-                                                        .pNext              = NULL,
-                                                        .descriptorPool     = shader.descriptor_pool,
-                                                        .descriptorSetCount = renderer->frame_count,
-                                                        .pSetLayouts        = layouts};
-        VK_ERROR_HANDLE(vkAllocateDescriptorSets(renderer->device.handle, &alloc_info, shader.descriptor_sets), {
+        const VkDescriptorSetAllocateInfo alloc_info = {
+            .sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .pNext              = NULL,
+            .descriptorPool     = shader.descriptor_pool,
+            .descriptorSetCount = 1,
+            .pSetLayouts        = &shader.layout
+        };
+        VK_ERROR_HANDLE(vkAllocateDescriptorSets(renderer->device.handle, &alloc_info, &shader.descriptor_set), {
             Shader_Cleanup(renderer, &shader);
-            free(layouts);
             return shader;
         });
 
-        free(layouts);
         shader.components[shader.component_count++] = SHADER_DESCRIPTOR_SETS_COMPONENT;
     }
 
     // uniforms
     {
-        shader.ubos = MemoryArena_Allocate(create_info->arena, renderer->frame_count * sizeof(UniformBufferObject));
-        for (uint32_t i = 0; i < renderer->frame_count; i++)
         {
-            shader.ubos[i] = UniformBufferObject_Create(sizeof(Mat4f) * 3, create_info->memory);
+            shader.ubo = UniformBufferObject_Create(sizeof(Mat4f) * 3, create_info->memory);
 
             const VkDescriptorBufferInfo buffer_info = {
-                .buffer = create_info->memory->uniform_buffer, .offset = shader.ubos[i].offset, .range = shader.ubos[i].size};
-            const VkWriteDescriptorSet descriptor_writes[] = {{.sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                                                               .pNext            = NULL,
-                                                               .dstSet           = shader.descriptor_sets[i],
-                                                               .dstBinding       = 0,
-                                                               .dstArrayElement  = 0,
-                                                               .descriptorCount  = 1,
-                                                               .descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                                               .pImageInfo       = NULL,
-                                                               .pBufferInfo      = &buffer_info,
-                                                               .pTexelBufferView = NULL}};
+                .buffer = create_info->memory->uniform_buffer, .offset = shader.ubo.offset, .range = shader.ubo.size};
+            const VkDescriptorImageInfo image_info = {
+                .sampler = create_info->image->sampler, .imageView = create_info->image->view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+            };
+
+            const VkWriteDescriptorSet descriptor_writes[] = {{
+                .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .pNext            = NULL,
+                .dstSet           = shader.descriptor_set,
+                .dstBinding       = 0,
+                .dstArrayElement  = 0,
+                .descriptorCount  = 1,
+                .descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .pImageInfo       = NULL,
+                .pBufferInfo      = &buffer_info,
+                .pTexelBufferView = NULL
+            }, {
+                .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .pNext            = NULL,
+                .dstSet           = shader.descriptor_set,
+                .dstBinding       = 1,
+                .dstArrayElement  = 0,
+                .descriptorCount  = 1,
+                .descriptorType   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .pImageInfo       = &image_info, // Need to set image info. May require creating a sampler.
+                .pBufferInfo      = NULL,
+                .pTexelBufferView = NULL
+            }};
             vkUpdateDescriptorSets(renderer->device.handle, sizeof(descriptor_writes) / sizeof(VkWriteDescriptorSet), descriptor_writes, 0, NULL);
         }
     }
@@ -178,6 +203,8 @@ Shader Shader_Create(Renderer renderer[static 1], const ShaderCreateInfo create_
 
 void Shader_Cleanup(const Renderer renderer[static 1], Shader shader[static 1])
 {
+    vkDeviceWaitIdle(renderer->device.handle);
+    
     while (shader->component_count > 0)
     {
         switch (shader->components[--shader->component_count])
@@ -186,14 +213,12 @@ void Shader_Cleanup(const Renderer renderer[static 1], Shader shader[static 1])
                 vkDestroyDescriptorPool(renderer->device.handle, shader->descriptor_pool, NULL);
                 break;
             case SHADER_DESCRIPTOR_SET_LAYOUTS_COMPONENT:
-                vkDestroyDescriptorSetLayout(renderer->device.handle, shader->vertex_layout, NULL);
-                shader->vertex_layout = VK_NULL_HANDLE;
-                vkDestroyDescriptorSetLayout(renderer->device.handle, shader->fragment_layout, NULL);
-                shader->fragment_layout = VK_NULL_HANDLE;
+                vkDestroyDescriptorSetLayout(renderer->device.handle, shader->layout, NULL);
+                shader->layout = VK_NULL_HANDLE;
                 break;
             case SHADER_DESCRIPTOR_SETS_COMPONENT:
-                vkFreeDescriptorSets(renderer->device.handle, shader->descriptor_pool, renderer->frame_count, shader->descriptor_sets);
-                shader->descriptor_sets = NULL;
+                vkFreeDescriptorSets(renderer->device.handle, shader->descriptor_pool, 1, &shader->descriptor_set);
+                shader->descriptor_set = NULL;
                 break;
             case SHADER_MODULES_COMPONENT:
                 vkDestroyShaderModule(renderer->device.handle, shader->vertex_module, NULL);
@@ -206,4 +231,19 @@ void Shader_Cleanup(const Renderer renderer[static 1], Shader shader[static 1])
                 assert(false);
         }
     }
+}
+
+void Shader_GetVkVertexInputAttributeDescription(Shader shader [static 1], uint32_t n [static 1], VkVertexInputAttributeDescription* const dest)
+{
+    *n = 1;
+
+    if (dest == NULL)
+    {
+        return;
+    }
+
+    dest[0].location = 0;
+    dest[0].binding = 0;
+    dest[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    dest[0].offset = 0;
 }

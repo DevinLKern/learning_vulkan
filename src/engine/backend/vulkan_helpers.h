@@ -3,8 +3,10 @@
 
 #include <stdbool.h>
 #include <utility/log.h>
-#include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan.h>
+
+// this is from vk_enum_string_helper.h, which only is written in C++.
+const char* string_VkResult(VkResult input_value);
 
 #define VK_ERROR_RETURN(expression, return_value)                          \
     {                                                                      \
@@ -30,10 +32,10 @@ uint32_t FindMemoryType(const VkPhysicalDevice physical_device, const uint32_t t
 
 enum QueueCapabilityFlagBits
 {
-    QUEUE_CAPABLITY_FLAG_GRAPHICS_BIT = (1 << 0),
-    QUEUE_CAPABLITY_FLAG_TRANSFER_BIT = (1 << 1),
-    QUEUE_CAPABLITY_FLAG_COMPUTE_BIT  = (1 << 2),
-    QUEUE_CAPABLITY_FLAG_PRESENT_BIT  = (1 << 3)
+    QUEUE_CAPABILITY_FLAG_GRAPHICS_BIT = (1 << 0),
+    QUEUE_CAPABILITY_FLAG_TRANSFER_BIT = (1 << 1),
+    QUEUE_CAPABILITY_FLAG_COMPUTE_BIT  = (1 << 2),
+    QUEUE_CAPABILITY_FLAG_PRESENT_BIT  = (1 << 3)
 };
 typedef uint32_t QueueCapabilityFlags;
 
@@ -113,14 +115,11 @@ typedef struct VulkanGraphicsPipelineCreateInfo
     VulkanRenderPass* render_pass;
     VkShaderModule vertex_shader_module;
     VkShaderModule fragment_shader_module;
-    VkDescriptorSetLayout vertex_shader_layout;
-    VkDescriptorSetLayout fragment_shader_layout;
+    VkDescriptorSetLayout shader_layout;
     uint32_t width;
     uint32_t height;
 } VulkanGraphicsPipelineCreateInfo;
 
-bool CreateVulkanGraphicsPipeline(const VulkanDevice device[static 1], const VulkanGraphicsPipelineCreateInfo create_info[static 1],
-                                  VulkanGraphicsPipeline pipeline[static 1]);
 
 typedef struct VulkanSwapchain
 {
